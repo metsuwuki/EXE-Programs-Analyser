@@ -8,6 +8,11 @@ pub(crate) struct DebugDiagnosis {
     pub(crate) root_cause: String,
 }
 
+pub(crate) struct DebugSourceLocation {
+    pub(crate) path: String,
+    pub(crate) line: usize,
+}
+
 pub(crate) fn build_debug_diagnosis(
     lang: UiLanguage,
     expected_exit: &str,
@@ -308,4 +313,69 @@ fn lpick<'a>(lang: UiLanguage, ru: &'a str, en: &'a str, de: &'a str, uk: &'a st
         UiLanguage::De => de,
         UiLanguage::Uk => uk,
     }
+}
+
+pub(crate) fn parse_debug_source_location(line: &str) -> Option<DebugSourceLocation> {
+    let trimmed = line.trim();
+
+    if let Some(loc) = parse_pdb_prompt_location(trimmed) {
+        return Some(loc);
+    }
+
+    parse_traceback_location(trimmed)
+}
+
+fn parse_pdb_prompt_location(line: &str) -> Option<DebugSourceLocation> {
+    if !line.starts_with('>') {
+        return None;
+    }
+
+    let open = line.find('(')?;
+    let close = line[open + 1..].find(')')? + open + 1;
+    if close <= open + 1 {
+        return None;
+    }
+
+    let path = line[1..open].trim();
+    if path.is_empty() {
+        return None;
+    }
+
+    let line_num = line[open + 1..close].trim().parse::<usize>().ok()?;
+    if line_num == 0 {
+        return None;
+    }
+
+    Some(DebugSourceLocation {
+        path: path.to_string(),
+        line: line_num,
+    })
+}
+
+fn parse_traceback_location(line: &str) -> Option<DebugSourceLocation> {
+    if !line.starts_with("File \"") {
+        return None;
+    }
+
+    let start = 6;
+    let end_rel = line[start..].find('"')?;
+    let end = start + end_rel;
+    let path = line[start..end].trim();
+    if path.is_empty() {
+        return None;
+    }
+
+    let marker = ", line ";
+    let marker_pos = line[end..].find(marker)? + end + marker.len();
+    let line_part = &line[marker_pos..];
+    let digits: String = line_part.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let line_num = digits.parse::<usize>().ok()?;
+    if line_num == 0 {
+        return None;
+    }
+
+    Some(DebugSourceLocation {
+        path: path.to_string(),
+        line: line_num,
+    })
 }

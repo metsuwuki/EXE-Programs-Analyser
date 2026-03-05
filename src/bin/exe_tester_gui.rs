@@ -75,6 +75,37 @@ struct PerfSample {
     ram_mb: u64,
 }
 
+#[derive(Debug, Clone)]
+struct DebugReplaySession {
+    timestamp_unix: u64,
+    status: String,
+    exit_code: Option<i32>,
+    timed_out: bool,
+    duration_ms: u128,
+    stdout: String,
+    stderr: String,
+    source_path: String,
+    active_line: Option<usize>,
+    line_history: Vec<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DebugSessionFilter {
+    All,
+    Pass,
+    Error,
+}
+
+impl DebugSessionFilter {
+    fn label(self) -> &'static str {
+        match self {
+            DebugSessionFilter::All => "All",
+            DebugSessionFilter::Pass => "Pass",
+            DebugSessionFilter::Error => "Error",
+        }
+    }
+}
+
 trait AnalyzerPlugin: Send + Sync {
     fn name(&self) -> &'static str;
     fn on_report_loaded(&self, report: &ReportData) -> Option<String>;
@@ -285,6 +316,14 @@ struct AnalyzerGuiApp {
     debugger_root_cause: String,
     debugger_stdout: String,
     debugger_stderr: String,
+    debugger_source_path: String,
+    debugger_source_lines: Vec<String>,
+    debugger_active_line: Option<usize>,
+    debugger_line_history: Vec<usize>,
+    debugger_line_history_cursor: usize,
+    debug_replay_sessions: Vec<DebugReplaySession>,
+    debug_replay_filter: DebugSessionFilter,
+    debug_replay_selected: Option<usize>,
     stdout_snapshots: Vec<String>,
     stdout_diff_left: usize,
     stdout_diff_right: usize,
@@ -351,6 +390,14 @@ impl Default for AnalyzerGuiApp {
             debugger_root_cause: "-".to_string(),
             debugger_stdout: String::new(),
             debugger_stderr: String::new(),
+            debugger_source_path: String::new(),
+            debugger_source_lines: Vec::new(),
+            debugger_active_line: None,
+            debugger_line_history: Vec::new(),
+            debugger_line_history_cursor: 0,
+            debug_replay_sessions: Vec::new(),
+            debug_replay_filter: DebugSessionFilter::All,
+            debug_replay_selected: None,
             stdout_snapshots: Vec::new(),
             stdout_diff_left: 0,
             stdout_diff_right: 0,
@@ -614,6 +661,181 @@ impl AnalyzerGuiApp {
         self.stdout_diff_text = diagnostics::unified_diff(left, right, "stdout_A", "stdout_B");
     }
 
+    fn try_load_debug_source(&mut self, path: &Path) -> bool {
+        let Ok(content) = fs::read_to_string(path) else {
+            return false;
+        };
+
+        self.debugger_source_path = path.display().to_string();
+        self.debugger_source_lines = content.lines().map(|line| line.to_string()).collect();
+        self.debugger_active_line = None;
+        self.debugger_line_history.clear();
+        self.debugger_line_history_cursor = 0;
+        true
+    }
+
+    fn ensure_debug_source_loaded(&mut self) {
+        let target = PathBuf::from(self.target_path.trim().trim_matches('"'));
+        if !target.exists() || target.is_dir() {
+            return;
+        }
+
+        let current = PathBuf::from(&self.debugger_source_path);
+        if current == target && !self.debugger_source_lines.is_empty() {
+            return;
+        }
+
+        if self.try_load_debug_source(&target) {
+            self.append_log(format!("[debug] Source loaded: {}", target.display()));
+        }
+    }
+
+    fn set_debug_active_line(&mut self, line: usize) {
+        if line == 0 {
+            return;
+        }
+
+        self.debugger_active_line = Some(line);
+        if self
+            .debugger_line_history
+            .last()
+            .copied()
+            .map(|last| last != line)
+            .unwrap_or(true)
+        {
+            self.debugger_line_history.push(line);
+            if self.debugger_line_history.len() > 200 {
+                let overflow = self.debugger_line_history.len() - 200;
+                self.debugger_line_history.drain(0..overflow);
+            }
+        }
+        self.debugger_line_history_cursor = self.debugger_line_history.len().saturating_sub(1);
+    }
+
+    fn ingest_debug_output_for_location(&mut self, text: &str) {
+        for line in text.lines() {
+            let Some(loc) = diagnostics::parse_debug_source_location(line) else {
+                continue;
+            };
+
+            let loc_path = PathBuf::from(loc.path.trim_matches('"'));
+            if loc_path.exists() {
+                let current = PathBuf::from(&self.debugger_source_path);
+                if current != loc_path || self.debugger_source_lines.is_empty() {
+                    let _ = self.try_load_debug_source(&loc_path);
+                }
+            }
+
+            self.set_debug_active_line(loc.line);
+        }
+    }
+
+    fn selected_debug_line(&self) -> Option<usize> {
+        self.debugger_line_history
+            .get(self.debugger_line_history_cursor)
+            .copied()
+            .or(self.debugger_active_line)
+    }
+
+    fn step_back_in_history(&mut self) {
+        if self.debugger_line_history_cursor > 0 {
+            self.debugger_line_history_cursor -= 1;
+        }
+    }
+
+    fn send_debug_next(&mut self) {
+        if self.debugger_backend == DebugBackend::PythonPdb {
+            self.send_debugger_command("next".to_string());
+        } else {
+            self.append_log("[debug] Step is available in Python pdb backend");
+        }
+    }
+
+    fn send_debug_continue(&mut self) {
+        if self.debugger_backend == DebugBackend::PythonPdb {
+            self.send_debugger_command("continue".to_string());
+        } else {
+            self.append_log("[debug] Auto forward is available in Python pdb backend");
+        }
+    }
+
+    fn send_debug_pause(&mut self) {
+        if self.debugger_backend == DebugBackend::PythonPdb {
+            self.send_debugger_command("where".to_string());
+            self.append_log("[debug] Pause requested (where)");
+        } else {
+            self.append_log("[debug] Pause is not available for this backend");
+        }
+    }
+
+    fn add_debug_replay_session(&mut self) {
+        let status = if self.debugger_last_timed_out {
+            "TIMEOUT".to_string()
+        } else if self.debugger_last_exit == Some(0) && !self.debugger_had_exception {
+            "PASS".to_string()
+        } else {
+            "ERROR".to_string()
+        };
+
+        self.debug_replay_sessions.push(DebugReplaySession {
+            timestamp_unix: Self::current_unix(),
+            status,
+            exit_code: self.debugger_last_exit,
+            timed_out: self.debugger_last_timed_out,
+            duration_ms: self.debugger_last_duration_ms,
+            stdout: self.debugger_stdout.clone(),
+            stderr: self.debugger_stderr.clone(),
+            source_path: self.debugger_source_path.clone(),
+            active_line: self.debugger_active_line,
+            line_history: self.debugger_line_history.clone(),
+        });
+
+        if self.debug_replay_sessions.len() > 120 {
+            let overflow = self.debug_replay_sessions.len() - 120;
+            self.debug_replay_sessions.drain(0..overflow);
+        }
+
+        self.debug_replay_selected = Some(self.debug_replay_sessions.len().saturating_sub(1));
+    }
+
+    fn session_matches_filter(&self, session: &DebugReplaySession) -> bool {
+        match self.debug_replay_filter {
+            DebugSessionFilter::All => true,
+            DebugSessionFilter::Pass => session.status == "PASS",
+            DebugSessionFilter::Error => session.status != "PASS",
+        }
+    }
+
+    fn load_replay_session(&mut self, idx: usize) {
+        let Some(session) = self.debug_replay_sessions.get(idx).cloned() else {
+            return;
+        };
+
+        self.debug_replay_selected = Some(idx);
+        self.debugger_last_exit = session.exit_code;
+        self.debugger_last_timed_out = session.timed_out;
+        self.debugger_last_duration_ms = session.duration_ms;
+        self.debugger_stdout = session.stdout;
+        self.debugger_stderr = session.stderr;
+
+        if !session.source_path.trim().is_empty() {
+            let path = PathBuf::from(&session.source_path);
+            if path.exists() {
+                let _ = self.try_load_debug_source(&path);
+            }
+        }
+
+        self.debugger_active_line = session.active_line;
+        self.debugger_line_history = session.line_history;
+        self.debugger_line_history_cursor = self.debugger_line_history.len().saturating_sub(1);
+        self.debugger_had_exception = diagnostics::infer_debug_exception(
+            self.debugger_last_exit,
+            self.debugger_last_timed_out,
+            &self.debugger_stderr,
+        );
+        self.append_log(format!("[debug] Replay loaded: #{}", idx));
+    }
+
     fn run_plugins(&mut self, report: &ReportData) {
         let mut plugin_logs = Vec::new();
         for plugin in &self.plugins {
@@ -815,6 +1037,8 @@ impl AnalyzerGuiApp {
             return;
         }
 
+        self.ensure_debug_source_loaded();
+
         let target_input = self.target_path.trim().trim_matches('"').to_string();
         if target_input.is_empty() {
             self.append_log("[debug] Select target file first");
@@ -850,6 +1074,9 @@ impl AnalyzerGuiApp {
         self.debugger_root_cause = "-".to_string();
         self.debugger_stdout.clear();
         self.debugger_stderr.clear();
+        self.debugger_active_line = None;
+        self.debugger_line_history.clear();
+        self.debugger_line_history_cursor = 0;
 
         let cancel = Arc::clone(&self.debugger_cancel_flag);
         let (tx, rx) = mpsc::channel::<UiEvent>();
@@ -977,6 +1204,7 @@ impl AnalyzerGuiApp {
                     } else {
                         self.debugger_stdout.push_str(&text);
                     }
+                    self.ingest_debug_output_for_location(&text);
                 }
                 UiEvent::DebugFinished {
                     exit_code,
@@ -1036,6 +1264,7 @@ impl AnalyzerGuiApp {
                     }
 
                     self.push_debug_history(exit_code, timed_out, duration_ms);
+                    self.add_debug_replay_session();
 
                     self.append_log(format!(
                         "[debug] Finished: exit={:?} timeout={} duration={}ms",
@@ -1752,257 +1981,161 @@ impl eframe::App for AnalyzerGuiApp {
                             });
                     }
                     WorkspaceTab::Debugger => {
-                        let lang = self.ui_language;
-                        ui.heading(self.t("Дебагер (бета)", "Debugger (beta)", "Debugger (Beta)", "Дебагер (бета)"));
-                        ui.colored_label(
-                            zed_fg_muted(),
-                            self.t(
-                                "Режим диагностики: сравнение ожиданий и факта, где сломалось и что послужило виной.",
-                                "Diagnostic mode: compares expected behavior with actual result and pinpoints probable root cause.",
-                                "Diagnosemodus: vergleicht Erwartung mit Ergebnis und zeigt wahrscheinliche Ursache.",
-                                "Режим дiагностики: порiвняння очiкування та факту, де зламалось i що стало причиною.",
-                            ),
-                        );
+                        self.ensure_debug_source_loaded();
+
+                        ui.heading(self.t("Дебагер", "Debugger", "Debugger", "Дебагер"));
                         ui.separator();
 
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new(self.t("Бэкенд", "Backend", "Backend", "Бекенд")).color(zed_fg_muted()));
-                            ui.selectable_value(
-                                &mut self.debugger_backend,
-                                DebugBackend::NativeRun,
-                                DebugBackend::NativeRun.label(),
-                            );
-                            ui.selectable_value(
-                                &mut self.debugger_backend,
-                                DebugBackend::PythonPdb,
-                                DebugBackend::PythonPdb.label(),
-                            );
-                        });
-
-                        if self.debugger_backend == DebugBackend::PythonPdb {
-                            ui.colored_label(
-                                zed_fg_muted(),
-                                self.t(
-                                    "Подсказка: цель должна быть .py. Команды: break file.py:line, step, next, continue, where, list, quit.",
-                                    "Tip: target should be a .py file. Commands: break file.py:line, step, next, continue, where, list, quit.",
-                                    "Tipp: Ziel sollte eine .py-Datei sein. Befehle: break file.py:line, step, next, continue, where, list, quit.",
-                                    "Пiдказка: цiль має бути .py. Команди: break file.py:line, step, next, continue, where, list, quit.",
-                                ),
-                            );
-                        }
-
-                        ui.horizontal(|ui| {
+                            ui.selectable_value(&mut self.debugger_backend, DebugBackend::NativeRun, DebugBackend::NativeRun.label());
+                            ui.selectable_value(&mut self.debugger_backend, DebugBackend::PythonPdb, DebugBackend::PythonPdb.label());
+                            ui.separator();
                             ui.label(egui::RichText::new(self.t("Аргументы", "Args", "Argumente", "Аргументи")).color(zed_fg_muted()));
-                            ui.add_sized(
-                                [ui.available_width() - 130.0, 28.0],
-                                egui::TextEdit::singleline(&mut self.debugger_args)
-                                    .hint_text(lpick(lang, "--пример значение", "--example value", "--beispiel wert", "--приклад значення")),
-                            );
+                            ui.add_sized([280.0, 26.0], egui::TextEdit::singleline(&mut self.debugger_args));
+                            ui.label(egui::RichText::new(self.t("Таймаут, сек", "Timeout, sec", "Zeitlimit, sek", "Таймаут, сек")).color(zed_fg_muted()));
+                            ui.add_sized([66.0, 26.0], egui::TextEdit::singleline(&mut self.debugger_timeout_secs));
                         });
 
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(self.t("Таймаут", "Timeout", "Zeitlimit", "Таймаут")).color(zed_fg_muted()));
-                            ui.add_sized(
-                                [80.0, 28.0],
-                                egui::TextEdit::singleline(&mut self.debugger_timeout_secs),
-                            );
-                            ui.label(egui::RichText::new(self.t("сек", "sec", "sek", "сек")).color(zed_fg_muted()));
-                            let run_btn = ui.add_enabled(
-                                !self.debugger_is_running && !self.is_running,
-                                egui::Button::new(self.t("Запустить", "Run Debug", "Start", "Запустити")),
-                            );
-                            if run_btn.clicked() {
+                        ui.horizontal_wrapped(|ui| {
+                            if ui
+                                .add_enabled(!self.debugger_is_running && !self.is_running, egui::Button::new(self.t("Старт", "Start", "Start", "Старт")))
+                                .clicked()
+                            {
                                 self.start_debugger_run();
                             }
-                            let stop_btn = ui.add_enabled(
-                                self.debugger_is_running,
-                                egui::Button::new(self.t("Стоп", "Stop", "Stopp", "Стоп")),
-                            );
-                            if stop_btn.clicked() {
+                            if ui
+                                .add_enabled(self.debugger_is_running, egui::Button::new(self.t("Следующий шаг", "Next step", "Naechster Schritt", "Наступний крок")))
+                                .clicked()
+                            {
+                                self.send_debug_next();
+                            }
+                            if ui.button(self.t("Предыдущий", "Previous", "Vorheriger", "Попереднiй")).clicked() {
+                                self.step_back_in_history();
+                            }
+                            if ui
+                                .add_enabled(self.debugger_is_running, egui::Button::new(self.t("Авто вперед", "Auto forward", "Auto vorwaerts", "Авто вперед")))
+                                .clicked()
+                            {
+                                self.send_debug_continue();
+                            }
+                            if ui
+                                .add_enabled(self.debugger_is_running, egui::Button::new(self.t("Пауза", "Pause", "Pause", "Пауза")))
+                                .clicked()
+                            {
+                                self.send_debug_pause();
+                            }
+                            if ui
+                                .add_enabled(self.debugger_is_running, egui::Button::new(self.t("Стоп", "Stop", "Stopp", "Стоп")))
+                                .clicked()
+                            {
                                 self.stop_debugger_run();
                             }
                         });
 
-                        ui.label(egui::RichText::new(self.t("stdin данные", "stdin payload", "stdin-Daten", "stdin данi")).color(zed_fg_muted()));
-                        ui.add_sized(
-                            [ui.available_width(), 84.0],
-                            egui::TextEdit::multiline(&mut self.debugger_stdin)
-                                .hint_text(lpick(
-                                    lang,
-                                    "Опциональный stdin-текст для целевого процесса",
-                                    "Optional stdin text for target process",
-                                    "Optionaler stdin-Text fuer den Zielprozess",
-                                    "Необов'язковий stdin-текст для цiльового процесу"
-                                )),
-                        );
-
-                        ui.separator();
-                        ui.strong(self.t("Ожидалось", "Expected", "Erwartet", "Очiкувалось"));
+                        ui.add_space(4.0);
                         ui.horizontal(|ui| {
-                            let expected_exception_label = self.t(
-                                "Ожидается исключение",
-                                "Exception expected",
-                                "Exception erwartet",
-                                "Очiкується виняток",
-                            );
-                            ui.label(egui::RichText::new(self.t("Выход", "Exit", "Exit", "Вихiд")).color(zed_fg_muted()));
-                            ui.add_sized(
-                                [60.0, 26.0],
-                                egui::TextEdit::singleline(&mut self.debugger_expected_exit)
-                                    .hint_text("0"),
-                            );
-                            ui.checkbox(&mut self.debugger_expected_exception, expected_exception_label);
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                egui::RichText::new(
-                                    self.t("stdout должен содержать", "stdout must contain", "stdout muss enthalten", "stdout має мiстити")
-                                )
-                                .color(zed_fg_muted()),
-                            );
-                            ui.add_sized(
-                                [ui.available_width(), 26.0],
-                                egui::TextEdit::singleline(&mut self.debugger_expected_stdout_contains)
-                                    .hint_text(lpick(lang, "опциональная подстрока", "optional substring", "optionaler Teilstring", "необов'язковий пiдрядок")),
-                            );
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                egui::RichText::new(
-                                    self.t("stderr должен содержать", "stderr must contain", "stderr muss enthalten", "stderr має мiстити")
-                                )
-                                .color(zed_fg_muted()),
-                            );
-                            ui.add_sized(
-                                [ui.available_width(), 26.0],
-                                egui::TextEdit::singleline(&mut self.debugger_expected_stderr_contains)
-                                    .hint_text(lpick(lang, "опциональная подстрока", "optional substring", "optionaler Teilstring", "необов'язковий пiдрядок")),
-                            );
-                        });
+                            ui.label(egui::RichText::new(self.t("Показывать прогоны", "Show runs", "Runs anzeigen", "Показувати прогони")).color(zed_fg_muted()));
+                            egui::ComboBox::from_id_salt("debug_replay_filter")
+                                .selected_text(self.debug_replay_filter.label())
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut self.debug_replay_filter, DebugSessionFilter::All, DebugSessionFilter::All.label());
+                                    ui.selectable_value(&mut self.debug_replay_filter, DebugSessionFilter::Pass, DebugSessionFilter::Pass.label());
+                                    ui.selectable_value(&mut self.debug_replay_filter, DebugSessionFilter::Error, DebugSessionFilter::Error.label());
+                                });
 
-                        if self.debugger_backend == DebugBackend::PythonPdb {
-                            ui.separator();
-                            ui.label(
-                                egui::RichText::new(
-                                    self.t("Интерактивные команды", "Interactive commands", "Interaktive Befehle", "Iнтерактивнi команди")
-                                )
-                                .color(zed_fg_muted()),
-                            );
-                            ui.horizontal(|ui| {
-                                ui.add_sized(
-                                    [ui.available_width() - 120.0, 28.0],
-                                    egui::TextEdit::singleline(&mut self.debugger_command_input)
-                                        .hint_text(lpick(
-                                            lang,
-                                            "step / next / continue / break file.py:42",
-                                            "step / next / continue / break file.py:42",
-                                            "step / next / continue / break file.py:42",
-                                            "step / next / continue / break file.py:42"
-                                        )),
-                                );
-                                let send_btn = ui.add_enabled(
-                                    self.debugger_is_running,
-                                    egui::Button::new(self.t("Отправить", "Send", "Senden", "Надiслати")),
-                                );
-                                if send_btn.clicked() {
-                                    let cmd = self.debugger_command_input.trim().to_string();
-                                    self.send_debugger_command(cmd);
-                                    self.debugger_command_input.clear();
-                                }
-                            });
+                            let filtered_indices: Vec<usize> = self
+                                .debug_replay_sessions
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(idx, session)| self.session_matches_filter(session).then_some(idx))
+                                .collect();
 
-                            ui.horizontal_wrapped(|ui| {
-                                for cmd in ["where", "list", "step", "next", "continue", "quit"] {
-                                    let btn = ui.add_enabled(
-                                        self.debugger_is_running,
-                                        egui::Button::new(cmd),
-                                    );
-                                    if btn.clicked() {
-                                        self.send_debugger_command(cmd.to_string());
+                            let replay_text = self
+                                .debug_replay_selected
+                                .and_then(|idx| self.debug_replay_sessions.get(idx))
+                                .map(|s| format!("#{} {} exit={:?}", self.debug_replay_selected.unwrap_or(0), s.status, s.exit_code))
+                                .unwrap_or_else(|| "<none>".to_string());
+
+                            egui::ComboBox::from_id_salt("debug_replay_selector")
+                                .selected_text(replay_text)
+                                .width(300.0)
+                                .show_ui(ui, |ui| {
+                                    for idx in filtered_indices.iter().rev().copied() {
+                                        let Some(s) = self.debug_replay_sessions.get(idx) else { continue; };
+                                        let label = format!(
+                                            "#{} {} t={} exit={:?} {}ms",
+                                            idx,
+                                            s.status,
+                                            s.timestamp_unix,
+                                            s.exit_code,
+                                            s.duration_ms
+                                        );
+                                        if ui.selectable_label(self.debug_replay_selected == Some(idx), label).clicked() {
+                                            self.load_replay_session(idx);
+                                        }
                                     }
-                                }
-                            });
-                        }
+                                });
+                        });
 
                         ui.separator();
                         ui.group(|ui| {
-                            ui.strong(self.t("Отправленные данные", "Sent data", "Gesendete Daten", "Надiсланi данi"));
-                            ui.monospace(format!("target: {}", self.target_path.trim()));
-                            ui.monospace(format!("backend: {}", self.debugger_backend.label()));
-                            ui.monospace(format!("args: {}", self.debugger_args));
-                            ui.monospace(format!("stdin bytes: {}", self.debugger_stdin.as_bytes().len()));
-                            if !self.debugger_stdin.trim().is_empty() {
-                                ui.monospace(format!(
-                                    "stdin preview: {}",
-                                    diagnostics::truncate_debug_text(&self.debugger_stdin, 120)
-                                ));
+                            ui.strong(self.t("Окно кода", "Code view", "Code-Fenster", "Вiкно коду"));
+                            if self.debugger_source_path.trim().is_empty() {
+                                ui.colored_label(zed_fg_muted(), self.t("Файл исходника не определен", "Source file is not resolved", "Quelldatei nicht gefunden", "Файл вихiдного коду не визначено"));
+                            } else {
+                                ui.monospace(format!("{}", self.debugger_source_path));
                             }
-                            ui.horizontal(|ui| {
-                                ui.colored_label(zed_fg_muted(), format!("exit: {:?}", self.debugger_last_exit));
-                                ui.colored_label(zed_fg_muted(), format!("timeout: {}", self.debugger_last_timed_out));
-                                ui.colored_label(zed_fg_muted(), format!("duration: {} ms", self.debugger_last_duration_ms));
-                                ui.colored_label(
-                                    if self.debugger_had_exception {
-                                        egui::Color32::from_rgb(229, 84, 84)
-                                    } else {
-                                        egui::Color32::from_rgb(73, 182, 117)
-                                    },
-                                    if self.debugger_had_exception {
-                                        "exception: yes"
-                                    } else {
-                                        "exception: no"
-                                    },
-                                );
-                            });
-                        });
 
-                        ui.add_space(6.0);
-                        ui.group(|ui| {
-                            ui.strong(self.t("Диагностика", "Diagnosis", "Diagnose", "Дiагностика"));
-                            ui.colored_label(
-                                if self.debugger_verdict_ok {
-                                    egui::Color32::from_rgb(73, 182, 117)
-                                } else {
-                                    egui::Color32::from_rgb(229, 84, 84)
-                                },
-                                if self.debugger_verdict_ok {
-                                    self.t("Соответствует ожиданиям", "Matches expected", "Entspricht der Erwartung", "Вiдповiдає очiкуванню")
-                                } else {
-                                    self.t("Найдено расхождение", "Mismatch detected", "Abweichung erkannt", "Виявлено розбiжнiсть")
-                                },
-                            );
-                            ui.monospace(format!(
-                                "{}: {}",
-                                self.t("ожидалось", "expected", "erwartet", "очiкувалось"),
-                                self.debugger_expected_view
-                            ));
-                            ui.monospace(format!(
-                                "{}: {}",
-                                self.t("получили", "got", "erhalten", "отримали"),
-                                self.debugger_got_view
-                            ));
-                            ui.monospace(format!(
-                                "{}: {}",
-                                self.t("где сломалось", "where failed", "wo es fehlschlug", "де зламалось"),
-                                self.debugger_failure_point
-                            ));
-                            ui.monospace(format!(
-                                "{}: {}",
-                                self.t("что послужило виной", "root cause", "Ursache", "що стало причиною"),
-                                self.debugger_root_cause
-                            ));
+                            let selected_line = self.selected_debug_line();
+                            if let Some(line) = selected_line {
+                                ui.colored_label(zed_fg_muted(), format!("line: {}", line));
+                            }
+
+                            egui::ScrollArea::vertical()
+                                .id_salt("debug_code_view")
+                                .max_height(350.0)
+                                .show(ui, |ui| {
+                                    if self.debugger_source_lines.is_empty() {
+                                        ui.colored_label(zed_fg_muted(), self.t("Нет кода для отображения", "No source loaded", "Kein Quellcode geladen", "Немає коду для вiдображення"));
+                                    } else {
+                                        for (idx, line) in self.debugger_source_lines.iter().enumerate() {
+                                            let line_no = idx + 1;
+                                            let is_active = selected_line == Some(line_no);
+                                            let bg = if is_active {
+                                                egui::Color32::from_rgb(40, 58, 82)
+                                            } else {
+                                                zed_bg_1()
+                                            };
+                                            egui::Frame::default()
+                                                .fill(bg)
+                                                .inner_margin(egui::Margin::same(2))
+                                                .show(ui, |ui| {
+                                                    ui.horizontal(|ui| {
+                                                        let number_color = if is_active {
+                                                            egui::Color32::from_rgb(166, 210, 255)
+                                                        } else {
+                                                            zed_fg_muted()
+                                                        };
+                                                        ui.monospace(egui::RichText::new(format!("{:>5}", line_no)).color(number_color));
+                                                        ui.monospace(line);
+                                                    });
+                                                });
+                                        }
+                                    }
+                                });
                         });
 
                         ui.add_space(6.0);
                         ui.columns(2, |cols| {
                             cols[0].group(|ui| {
-                                ui.label(egui::RichText::new(self.t("stdout / окно выполнения", "stdout / execution view", "stdout / Ausfuehrung", "stdout / вiкно виконання")).color(zed_fg_muted()));
+                                ui.label(egui::RichText::new("stdout").color(zed_fg_muted()));
                                 egui::ScrollArea::vertical()
                                     .id_salt("debug_stdout_scroll")
-                                    .max_height(260.0)
+                                    .max_height(180.0)
                                     .show(ui, |ui| {
                                         if self.debugger_stdout.trim().is_empty() {
-                                            ui.colored_label(zed_fg_muted(), self.t("<пусто>", "<empty>", "<leer>", "<порожньо>"));
+                                            ui.colored_label(zed_fg_muted(), "<empty>");
                                         } else {
                                             ui.monospace(&self.debugger_stdout);
                                         }
@@ -2010,66 +2143,18 @@ impl eframe::App for AnalyzerGuiApp {
                             });
 
                             cols[1].group(|ui| {
-                                ui.label(egui::RichText::new(self.t("stderr / диагностика", "stderr / diagnostics", "stderr / Diagnose", "stderr / дiагностика")).color(zed_fg_muted()));
+                                ui.label(egui::RichText::new("stderr").color(zed_fg_muted()));
                                 egui::ScrollArea::vertical()
                                     .id_salt("debug_stderr_scroll")
-                                    .max_height(260.0)
+                                    .max_height(180.0)
                                     .show(ui, |ui| {
                                         if self.debugger_stderr.trim().is_empty() {
-                                            ui.colored_label(zed_fg_muted(), self.t("<пусто>", "<empty>", "<leer>", "<порожньо>"));
+                                            ui.colored_label(zed_fg_muted(), "<empty>");
                                         } else {
                                             ui.monospace(&self.debugger_stderr);
                                         }
                                     });
                             });
-                        });
-
-                        ui.add_space(8.0);
-                        ui.group(|ui| {
-                            ui.strong(self.t("Diff stdout (git-like)", "Diff stdout (git-like)", "Diff stdout (git-aehnlich)", "Diff stdout (git-like)"));
-                            if self.stdout_snapshots.len() < 2 {
-                                ui.colored_label(zed_fg_muted(), self.t("Нужно минимум 2 прогона дебага", "Need at least 2 debug runs", "Mindestens 2 Debug-Runs", "Потрiбно щонайменше 2 прогони дебагу"));
-                            } else {
-                                ui.horizontal(|ui| {
-                                    ui.label("A");
-                                    egui::ComboBox::from_id_salt("stdout_diff_left")
-                                        .selected_text(self.stdout_diff_left.to_string())
-                                        .show_ui(ui, |ui| {
-                                            for idx in 0..self.stdout_snapshots.len() {
-                                                if ui
-                                                    .selectable_value(&mut self.stdout_diff_left, idx, idx.to_string())
-                                                    .clicked()
-                                                {
-                                                    self.rebuild_stdout_diff();
-                                                }
-                                            }
-                                        });
-                                    ui.label("B");
-                                    egui::ComboBox::from_id_salt("stdout_diff_right")
-                                        .selected_text(self.stdout_diff_right.to_string())
-                                        .show_ui(ui, |ui| {
-                                            for idx in 0..self.stdout_snapshots.len() {
-                                                if ui
-                                                    .selectable_value(&mut self.stdout_diff_right, idx, idx.to_string())
-                                                    .clicked()
-                                                {
-                                                    self.rebuild_stdout_diff();
-                                                }
-                                            }
-                                        });
-                                });
-
-                                egui::ScrollArea::vertical()
-                                    .id_salt("stdout_diff_scroll")
-                                    .max_height(180.0)
-                                    .show(ui, |ui| {
-                                        if self.stdout_diff_text.trim().is_empty() {
-                                            ui.colored_label(zed_fg_muted(), "<empty diff>");
-                                        } else {
-                                            ui.monospace(&self.stdout_diff_text);
-                                        }
-                                    });
-                            }
                         });
                     }
                 }
