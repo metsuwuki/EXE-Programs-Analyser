@@ -17,7 +17,11 @@ It helps you inspect executable files, run runtime checks, and review structured
 
 ## Quick Start (End Users)
 
-Run one of the following files in this folder:
+Portable package path:
+
+- `dist/EXE_Analyzer`
+
+Run one of the following:
 
 - `Start Analyzer GUI.cmd`
 - `exe_tester_gui.exe`
@@ -43,6 +47,46 @@ cargo run --bin exe_tester -- "C:\\path\\to\\app.exe" --strict --timeout 4 --run
 - `1` = WARN (`BALANCED` mode)
 - `2` = FAIL
 - `64` = argument/usage error
+
+## Build Portable Package
+
+```powershell
+build_portable.cmd
+```
+
+The script builds release binaries and creates a ready-to-run package in `dist/EXE_Analyzer`.
+
+## Release Artifacts (Recommended)
+
+```powershell
+release_artifacts.cmd
+```
+
+This pipeline runs:
+
+- `build_portable.cmd` (release build + packaging)
+- `scripts/pre_release_security_check.ps1` (SHA256 manifest + Defender precheck)
+
+Output files in `dist/EXE_Analyzer`:
+
+- `SHA256SUMS.txt`
+- `SECURITY_PRECHECK.txt`
+
+## Modes
+
+The analyzer uses exactly two verdict modes:
+
+- `BALANCED`
+- `STRICT`
+
+No extra runtime mode switching is required for normal use.
+
+## Security / EDR Notes
+
+- The portable launcher uses a transparent `.cmd` start flow (no hidden VBS launcher).
+- For enterprise endpoints, add your release folder to allowlist by hash/path/publisher policy.
+- If a false positive occurs, submit the binary hash and sample to your AV vendor.
+- See `SECURITY.md` for a short response checklist.
 
 ## Author
 
