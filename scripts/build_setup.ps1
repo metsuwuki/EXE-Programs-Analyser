@@ -186,6 +186,68 @@ public static extern bool DestroyIcon(System.IntPtr hIcon);
 	}
 }
 
+function Assert-PortablePayload {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$RepositoryRoot
+	)
+
+	$portableRoot = Join-Path $RepositoryRoot "dist\EXE_Analyzer"
+	if (-not (Test-Path $portableRoot)) {
+		Write-Error "[ERROR] Portable payload not found: $portableRoot. Run build_portable.cmd first or remove --skip-portable."
+		exit 1
+	}
+
+	$requiredFiles = @(
+		(Join-Path $portableRoot "exe_tester_gui.exe"),
+		(Join-Path $portableRoot ".engine\analyzer_core.exe")
+	)
+
+	$missing = @()
+	foreach ($file in $requiredFiles) {
+		if (-not (Test-Path $file)) {
+			$missing += $file
+		}
+	}
+
+	if ($missing.Count -gt 0) {
+		Write-Error "[ERROR] Portable payload is incomplete. Missing required files:`n$($missing -join "`n")"
+		exit 1
+	}
+
+	Write-Host "[INFO] Portable payload validated: $portableRoot"
+}
+
+function Get-CargoPackageVersion {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$CargoTomlPath
+	)
+
+	if (-not (Test-Path $CargoTomlPath)) {
+		Write-Warning "[WARN] Cargo.toml not found; using version 0.1.0"
+		return "0.1.0"
+	}
+
+	$content = Get-Content $CargoTomlPath -Raw
+	$packageBlock = [regex]::Match($content, '(?ms)^\[package\]\s*(?<body>.*?)(^\[|\z)')
+	if ($packageBlock.Success) {
+		$versionMatch = [regex]::Match($packageBlock.Groups['body'].Value, '(?m)^\s*version\s*=\s*"(?<ver>[^"]+)"')
+		if ($versionMatch.Success) {
+			return $versionMatch.Groups['ver'].Value.Trim()
+		}
+	}
+
+	# Fallback for non-standard Cargo.toml layout.
+	$fallback = [regex]::Match($content, '(?m)^\s*version\s*=\s*"(?<ver>[^"]+)"')
+	if ($fallback.Success) {
+		return $fallback.Groups['ver'].Value.Trim()
+	}
+
+	Write-Warning "[WARN] Could not parse version from Cargo.toml; using version 0.1.0"
+	return "0.1.0"
+}
+
 # Если не пропущено — попытаться собрать портативный пакет сначала
 if (-not $SkipPortable) {
 	Write-Host "[INFO] Building portable package first..."
@@ -197,6 +259,8 @@ if (-not $SkipPortable) {
 		Write-Warning "[WARN] build_portable.cmd not found, skipping portable build."
 	}
 }
+
+Assert-PortablePayload -RepositoryRoot $RepoRoot
 
 # Найти ISCC.exe (Inno Setup Compiler)
 $iscc = $env:ISCC_EXE
@@ -230,13 +294,8 @@ Write-Host "[INFO] Using ISCC: $iscc"
 
 # Прочитать версию из Cargo.toml
 $cargoPath = Join-Path $RepoRoot "Cargo.toml"
-if (-not (Test-Path $cargoPath)) {
-	Write-Warning "[WARN] Cargo.toml not found; using version 0.1.0"
-	$version = "0.1.0"
-} else {
-	$content = Get-Content $cargoPath -Raw
-	if ($content -match 'version\s*=\s*"(.*?)"') { $version = $matches[1] } else { $version = "0.1.0" }
-}
+$version = Get-CargoPackageVersion -CargoTomlPath $cargoPath
+$outputBaseName = "Metsuki_EXE_Analyzer_Setup_$version"
 Write-Host "[INFO] Installer version: $version"
 
 # Путь к .iss
@@ -253,7 +312,7 @@ New-InstallerBrandingAssets -RepositoryRoot $RepoRoot
 $distDir = Join-Path $RepoRoot "dist"
 if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir | Out-Null }
 
-$argList = "/O`"$distDir`" /DMyAppVersion=`"$version`" `"$iss`""
+$argList = "/O`"$distDir`" /DMyAppVersion=`"$version`" /DSetupOutputBaseFilename=`"$outputBaseName`" `"$iss`""
 Write-Host "[INFO] Running ISCC $argList"
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $iscc
@@ -271,5 +330,23 @@ if ($proc.ExitCode -ne 0) {
 	exit $proc.ExitCode
 }
 
-Write-Host "[INFO] Installer built successfully into: $distDir"
+$expectedSetup = Join-Path $distDir ("$outputBaseName.exe")
+if (-not (Test-Path $expectedSetup)) {
+	$fallback = Get-ChildItem -Path $distDir -Filter "*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+	if ($null -ne $fallback) {
+		Write-Warning "[WARN] Expected installer name not found, using latest executable artifact: $($fallback.FullName)"
+		$expectedSetup = $fallback.FullName
+	} else {
+		Write-Error "[ERROR] ISCC finished but no installer executable was produced in: $distDir"
+		exit 1
+	}
+}
+
+$canonicalSetup = Join-Path $distDir "Setup.exe"
+if ((Resolve-Path $expectedSetup).Path -ne (Resolve-Path $canonicalSetup -ErrorAction SilentlyContinue | ForEach-Object { $_.Path })) {
+	Copy-Item -Path $expectedSetup -Destination $canonicalSetup -Force
+	Write-Host "[INFO] Canonical installer alias updated: $canonicalSetup"
+}
+
+Write-Host "[INFO] Installer built successfully: $expectedSetup"
 exit 0

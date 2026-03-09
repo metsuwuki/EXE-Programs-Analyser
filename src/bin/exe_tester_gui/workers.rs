@@ -198,9 +198,23 @@ pub(crate) fn debug_worker_gdb(
 
     let mut child_stdin = child.stdin.take();
     if let Some(stdin) = child_stdin.as_mut() {
-        let _ = std::io::Write::write_all(stdin, b"set pagination off\n");
-        let _ = std::io::Write::write_all(stdin, b"set confirm off\n");
-        let _ = std::io::Write::write_all(stdin, b"run\n");
+        let bootstrap = [
+            "set pagination off",
+            "set confirm off",
+            "set breakpoint pending on",
+            "set print thread-events off",
+            "set startup-with-shell off",
+            "starti",
+        ];
+        for command in bootstrap {
+            if let Err(e) = send_gdb_command(stdin, command) {
+                let _ = tx.send(UiEvent::Log(format!(
+                    "[debug] Failed to send bootstrap command '{}': {}",
+                    command, e
+                )));
+                break;
+            }
+        }
     }
 
     let mut stream_threads = Vec::new();
@@ -213,6 +227,7 @@ pub(crate) fn debug_worker_gdb(
 
     let timeout = Duration::from_secs(timeout_secs.max(1));
     let mut timed_out = false;
+    let mut stop_requested = false;
     let mut exit_code: Option<i32> = None;
 
     loop {
@@ -220,24 +235,26 @@ pub(crate) fn debug_worker_gdb(
             match control {
                 DebugControl::Command(cmd) => {
                     if let Some(stdin) = child_stdin.as_mut() {
-                        let mut line = cmd;
-                        line.push('\n');
-                        let _ = std::io::Write::write_all(stdin, line.as_bytes());
+                        if let Err(e) = send_gdb_command(stdin, &cmd) {
+                            let _ = tx.send(UiEvent::Log(format!(
+                                "[debug] Failed to send command '{}': {}",
+                                cmd, e
+                            )));
+                        }
                     }
                 }
                 DebugControl::Stop => {
-                    timed_out = true;
+                    stop_requested = true;
                     let _ = child.kill();
                 }
             }
         }
 
-        if timed_out {
+        if timed_out || stop_requested {
             break;
         }
 
         if cancel.load(Ordering::Relaxed) {
-            timed_out = true;
             let _ = child.kill();
             break;
         }
@@ -286,6 +303,12 @@ pub(crate) fn debug_worker_gdb(
         stdout: String::new(),
         stderr: String::new(),
     });
+}
+
+fn send_gdb_command(stdin: &mut std::process::ChildStdin, command: &str) -> std::io::Result<()> {
+    std::io::Write::write_all(stdin, command.as_bytes())?;
+    std::io::Write::write_all(stdin, b"\n")?;
+    std::io::Write::flush(stdin)
 }
 
 pub(crate) fn debug_worker_native(

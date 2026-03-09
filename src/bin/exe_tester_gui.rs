@@ -388,7 +388,7 @@ impl Default for AnalyzerGuiApp {
             splash_started_at: Instant::now(),
             splash_duration: Duration::from_millis(2200),
             debugger_args: String::new(),
-            debugger_timeout_secs: "5".to_string(),
+            debugger_timeout_secs: "30".to_string(),
             debugger_expected_exit: "0".to_string(),
             debugger_expected_exception: false,
             debugger_expected_stdout_contains: String::new(),
@@ -1501,6 +1501,24 @@ impl eframe::App for AnalyzerGuiApp {
                             self.open_logs_window();
                         }
 
+                        if ui
+                            .add_sized(
+                                [160.0, 28.0],
+                                egui::Button::new(self.t(
+                                    "Сервер поддержки",
+                                    "Support Server",
+                                    "Support-Server",
+                                    "Сервер підтримки",
+                                )),
+                            )
+                            .clicked()
+                        {
+                            ui.ctx().open_url(egui::OpenUrl {
+                                url: "https://discord.gg/xuHMjdJN6".to_string(),
+                                new_tab: true,
+                            });
+                        }
+
                         if self.debugger_is_running {
                             ui.spinner();
                         }
@@ -1616,6 +1634,10 @@ impl eframe::App for AnalyzerGuiApp {
                     .stroke(egui::Stroke::new(1.0, zed_bg_3())),
             )
             .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("left_controls_scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
                 ui.label(
                     egui::RichText::new(self.t("Инспектор", "Inspector", "Inspektor", "Iнспектор"))
                         .strong()
@@ -1951,6 +1973,7 @@ impl eframe::App for AnalyzerGuiApp {
                         );
                     },
                 );
+                    });
             });
 
         egui::CentralPanel::default()
@@ -1960,6 +1983,10 @@ impl eframe::App for AnalyzerGuiApp {
                     .inner_margin(egui::Margin::same(8)),
             )
             .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("workspace_scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
                 ui.add_space(4.0);
                 let (pass_count, warn_count, fail_count) = self.severity_counts();
                 let total_findings = (pass_count + warn_count + fail_count).max(1) as f32;
@@ -2099,62 +2126,66 @@ impl eframe::App for AnalyzerGuiApp {
                         ui.separator();
 
                         let text_height = egui::TextStyle::Body.resolve(ui.style()).size + 8.0;
-                        TableBuilder::new(ui)
-                            .id_salt("findings_table")
-                            .striped(true)
-                            .column(Column::exact(70.0))
-                            .column(Column::exact(170.0))
-                            .column(Column::exact(110.0))
-                            .column(Column::exact(60.0))
-                            .column(Column::remainder())
-                            .min_scrolled_height(220.0)
-                            .header(22.0, |mut header| {
-                                header.col(|ui| {
-                                    ui.strong(self.t("Уровень", "Severity", "Schwere", "Рiвень"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Код", "Code", "Code", "Код"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Категория", "Category", "Kategorie", "Категорiя"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Баллы", "Pts", "Punkte", "Бали"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Сообщение", "Message", "Meldung", "Повiдомлення"));
-                                });
-                            })
-                            .body(|body| {
-                                body.rows(text_height, self.findings.len(), |mut row| {
-                                    let index = row.index();
-                                    let item = &self.findings[index];
-                                    row.col(|ui| {
-                                        let selected = self.selected_finding == Some(index);
-                                        if ui
-                                            .selectable_label(
-                                                selected,
-                                                egui::RichText::new(&item.severity)
-                                                    .color(severity_color(&item.severity)),
-                                            )
-                                            .clicked()
-                                        {
-                                            self.selected_finding = Some(index);
-                                        }
+                        egui::ScrollArea::horizontal()
+                            .id_salt("findings_table_hscroll")
+                            .show(ui, |ui| {
+                                TableBuilder::new(ui)
+                                    .id_salt("findings_table")
+                                    .striped(true)
+                                    .column(Column::exact(70.0))
+                                    .column(Column::exact(170.0))
+                                    .column(Column::exact(110.0))
+                                    .column(Column::exact(60.0))
+                                    .column(Column::remainder())
+                                    .min_scrolled_height(220.0)
+                                    .header(22.0, |mut header| {
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Уровень", "Severity", "Schwere", "Рiвень"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Код", "Code", "Code", "Код"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Категория", "Category", "Kategorie", "Категорiя"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Баллы", "Pts", "Punkte", "Бали"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Сообщение", "Message", "Meldung", "Повiдомлення"));
+                                        });
+                                    })
+                                    .body(|body| {
+                                        body.rows(text_height, self.findings.len(), |mut row| {
+                                            let index = row.index();
+                                            let item = &self.findings[index];
+                                            row.col(|ui| {
+                                                let selected = self.selected_finding == Some(index);
+                                                if ui
+                                                    .selectable_label(
+                                                        selected,
+                                                        egui::RichText::new(&item.severity)
+                                                            .color(severity_color(&item.severity)),
+                                                    )
+                                                    .clicked()
+                                                {
+                                                    self.selected_finding = Some(index);
+                                                }
+                                            });
+                                            row.col(|ui| {
+                                                ui.monospace(&item.code);
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(&item.category);
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(item.points.to_string());
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(&item.message);
+                                            });
+                                        });
                                     });
-                                    row.col(|ui| {
-                                        ui.monospace(&item.code);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(&item.category);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(item.points.to_string());
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(&item.message);
-                                    });
-                                });
                             });
 
                         if let Some(idx) = self.selected_finding {
@@ -2187,86 +2218,90 @@ impl eframe::App for AnalyzerGuiApp {
                         ui.add_space(10.0);
 
                         let text_height = egui::TextStyle::Body.resolve(ui.style()).size + 8.0;
-                        TableBuilder::new(ui)
-                            .id_salt("runtime_table")
-                            .striped(true)
-                            .column(Column::exact(220.0))
-                            .column(Column::exact(80.0))
-                            .column(Column::exact(70.0))
-                            .column(Column::exact(90.0))
-                            .column(Column::exact(90.0))
-                            .column(Column::exact(90.0))
-                            .column(Column::exact(110.0))
-                            .column(Column::remainder())
-                            .min_scrolled_height(210.0)
-                            .header(22.0, |mut header| {
-                                header.col(|ui| {
-                                    ui.strong(self.t("Сценарий", "Scenario", "Szenario", "Сценарiй"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Выход", "Exit", "Exit", "Вихiд"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Таймаут", "Timeout", "Zeitlimit", "Таймаут"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong("ms");
-                                });
-                                header.col(|ui| {
-                                    ui.strong("stdout");
-                                });
-                                header.col(|ui| {
-                                    ui.strong("stderr");
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Статус", "State", "Status", "Стан"));
-                                });
-                                header.col(|ui| {
-                                    ui.strong(self.t("Причина", "Reason", "Grund", "Причина"));
-                                });
-                            })
-                            .body(|body| {
-                                body.rows(text_height, self.runtime.len(), |mut row| {
-                                    let r = &self.runtime[row.index()];
-                                    row.col(|ui| {
-                                        ui.label(&r.scenario);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(format!("{:?}", r.exit_code));
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(if r.timed_out {
-                                            self.t("да", "yes", "ja", "так")
-                                        } else {
-                                            self.t("нет", "no", "nein", "нi")
+                        egui::ScrollArea::horizontal()
+                            .id_salt("runtime_table_hscroll")
+                            .show(ui, |ui| {
+                                TableBuilder::new(ui)
+                                    .id_salt("runtime_table")
+                                    .striped(true)
+                                    .column(Column::exact(220.0))
+                                    .column(Column::exact(80.0))
+                                    .column(Column::exact(70.0))
+                                    .column(Column::exact(90.0))
+                                    .column(Column::exact(90.0))
+                                    .column(Column::exact(90.0))
+                                    .column(Column::exact(110.0))
+                                    .column(Column::remainder())
+                                    .min_scrolled_height(210.0)
+                                    .header(22.0, |mut header| {
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Сценарий", "Scenario", "Szenario", "Сценарiй"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Выход", "Exit", "Exit", "Вихiд"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Таймаут", "Timeout", "Zeitlimit", "Таймаут"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong("ms");
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong("stdout");
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong("stderr");
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Статус", "State", "Status", "Стан"));
+                                        });
+                                        header.col(|ui| {
+                                            ui.strong(self.t("Причина", "Reason", "Grund", "Причина"));
+                                        });
+                                    })
+                                    .body(|body| {
+                                        body.rows(text_height, self.runtime.len(), |mut row| {
+                                            let r = &self.runtime[row.index()];
+                                            row.col(|ui| {
+                                                ui.label(&r.scenario);
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(format!("{:?}", r.exit_code));
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(if r.timed_out {
+                                                    self.t("да", "yes", "ja", "так")
+                                                } else {
+                                                    self.t("нет", "no", "nein", "нi")
+                                                });
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(r.duration_ms.to_string());
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(r.stdout_len.to_string());
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(r.stderr_len.to_string());
+                                            });
+                                            row.col(|ui| {
+                                                let mut label = self.t("ок", "ok", "ok", "ок");
+                                                if r.timed_out {
+                                                    label = self.t("таймаут", "timeout", "Zeitlimit", "таймаут");
+                                                } else if let Some(code) = r.exit_code {
+                                                    if code != 0 {
+                                                        label = self.t("ненулевой", "non-zero", "ungleich null", "ненульовий");
+                                                    }
+                                                } else {
+                                                    label = self.t("аномально", "abnormal", "abnormal", "аномально");
+                                                }
+                                                ui.label(label);
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(self.runtime_reason(r));
+                                            });
                                         });
                                     });
-                                    row.col(|ui| {
-                                        ui.label(r.duration_ms.to_string());
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(r.stdout_len.to_string());
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(r.stderr_len.to_string());
-                                    });
-                                    row.col(|ui| {
-                                        let mut label = self.t("ок", "ok", "ok", "ок");
-                                        if r.timed_out {
-                                            label = self.t("таймаут", "timeout", "Zeitlimit", "таймаут");
-                                        } else if let Some(code) = r.exit_code {
-                                            if code != 0 {
-                                                label = self.t("ненулевой", "non-zero", "ungleich null", "ненульовий");
-                                            }
-                                        } else {
-                                            label = self.t("аномально", "abnormal", "abnormal", "аномально");
-                                        }
-                                        ui.label(label);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(self.runtime_reason(r));
-                                    });
-                                });
                             });
                     }
                     WorkspaceTab::Debugger => {
@@ -2601,6 +2636,7 @@ impl eframe::App for AnalyzerGuiApp {
                         });
                     }
                 }
+                    });
             });
     }
 }
@@ -2726,6 +2762,12 @@ fn detect_gdb_command() -> Option<PathBuf> {
         }
     }
 
+    for candidate in gdb_local_candidates() {
+        if gdb_probe_success(&candidate) {
+            return Some(candidate);
+        }
+    }
+
     let path_candidate = if cfg!(windows) {
         PathBuf::from("gdb.exe")
     } else {
@@ -2742,6 +2784,43 @@ fn detect_gdb_command() -> Option<PathBuf> {
     }
 
     None
+}
+
+fn gdb_local_candidates() -> Vec<PathBuf> {
+    let gdb_name = if cfg!(windows) { "gdb.exe" } else { "gdb" };
+    let mut candidates = Vec::new();
+
+    if let Ok(cwd) = env::current_dir() {
+        candidates.push(cwd.join(gdb_name));
+        candidates.push(cwd.join(".tools").join("gdb").join("bin").join(gdb_name));
+        candidates.push(cwd.join("tools").join("gdb").join("bin").join(gdb_name));
+    }
+
+    if let Ok(exe) = env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(exe_dir.join(gdb_name));
+            candidates.push(exe_dir.join(".tools").join("gdb").join("bin").join(gdb_name));
+            candidates.push(exe_dir.join("tools").join("gdb").join("bin").join(gdb_name));
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join(".tools")
+                    .join("gdb")
+                    .join("bin")
+                    .join(gdb_name),
+            );
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("tools")
+                    .join("gdb")
+                    .join("bin")
+                    .join(gdb_name),
+            );
+        }
+    }
+
+    candidates
 }
 
 fn gdb_probe_success(gdb_command: &Path) -> bool {
@@ -2814,7 +2893,7 @@ fn main() -> eframe::Result<()> {
     let mut native_options = eframe::NativeOptions::default();
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1380.0, 860.0])
-        .with_min_inner_size([1180.0, 740.0])
+        .with_min_inner_size([980.0, 620.0])
         .with_title("Metsuki EXE Analyzer");
 
     if let Some(icon_data) = load_icon_data() {
