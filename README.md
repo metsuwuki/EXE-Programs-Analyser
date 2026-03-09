@@ -45,7 +45,7 @@ For a public source repository, keep these files in Git:
 - `src/` (all Rust sources, including GUI and analyzer engine modules)
 - `scripts/`, `installer/`, `build_*.cmd`, `release_artifacts.cmd`
 - `Cargo.toml`, `Cargo.lock`, `README.md`, `SECURITY.md`, `SECURITY_LAB_MODULES.md`
-- static assets (`EXE_icon.ico`, `logo.png`)
+- static assets (`icon.ico`, `logo.png`)
 
 Do not commit generated artifacts:
 

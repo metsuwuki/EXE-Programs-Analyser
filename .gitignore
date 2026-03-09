@@ -1,5 +1,0 @@
-/target/
-/dist/
-/logs/
-/*.log
-**/*.rs.bk

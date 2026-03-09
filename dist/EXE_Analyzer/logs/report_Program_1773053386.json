@@ -1,0 +1,173 @@
+{
+  "target": "C:\\Users\\User\\Desktop\\Bohdan Korolov Block-4 1XA\\Book Management System\\Universal_Block4\\Universal_Block4\\Program.cs",
+  "generated_unix": 1773053386,
+  "mode": "STRICT",
+  "score": 0,
+  "final_status": "PASS",
+  "findings": [
+    {
+      "severity": "PASS",
+      "code": "SOURCE_TARGET_DETECTED",
+      "category": "preflight",
+      "points": 0,
+      "message": "Source target detected: C#"
+    },
+    {
+      "severity": "PASS",
+      "code": "SOURCE_ANALYSIS_MODE",
+      "category": "source",
+      "points": 0,
+      "message": "Running source analysis mode for C#"
+    },
+    {
+      "severity": "PASS",
+      "code": "SOURCE_SIZE_INFO",
+      "category": "source",
+      "points": 0,
+      "message": "C# file: 255 lines, 11474 bytes (C:\\Users\\User\\Desktop\\Bohdan Korolov Block-4 1XA\\Book Management System\\Universal_Block4\\Universal_Block4\\Program.cs)"
+    },
+    {
+      "severity": "PASS",
+      "code": "SOURCE_NO_SUSPICIOUS_PATTERN",
+      "category": "source",
+      "points": 0,
+      "message": "No suspicious source patterns from current heuristic rules."
+    },
+    {
+      "severity": "PASS",
+      "code": "SOURCE_DELIMITERS_OK",
+      "category": "source",
+      "points": 0,
+      "message": "Basic delimiter balance check passed."
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_SKIPPED_SOURCE",
+      "category": "runtime",
+      "points": 0,
+      "message": "Runtime stress scenarios are skipped for source files."
+    },
+    {
+      "severity": "PASS",
+      "code": "LAB_MODULES_ACTIVE",
+      "category": "security-lab",
+      "points": 0,
+      "message": "Security-lab active modules: 3"
+    }
+  ],
+  "runtime": [],
+  "telemetry": {
+    "enabled": true,
+    "profile": "aggressive",
+    "custom_selection": false,
+    "confirmation_required": false,
+    "recommended_next_step": "Use --modules <id1,id2> to customize enabled modules for your target type.",
+    "selected_modules": [
+      {
+        "id": "pe_rules",
+        "title": "PE Structural Rules",
+        "category": "PE",
+        "capabilities": [
+          "headers/sections integrity",
+          "mitigations scoring",
+          "overlay + import risk heuristics"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Source"
+      },
+      {
+        "id": "asm_disasm",
+        "title": "ASM Signature + Pseudo Disassembly",
+        "category": "ASM",
+        "capabilities": [
+          "opcode signature scan",
+          "branch/call density sampling",
+          "packer shellcode hints"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Source"
+      },
+      {
+        "id": "symbolic_pathing",
+        "title": "Symbolic Path Explorer",
+        "category": "Symbolic",
+        "capabilities": [
+          "branch complexity estimation",
+          "path explosion hot spots",
+          "high-risk condition hints"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "taint_dataflow",
+        "title": "Dataflow + Taint",
+        "category": "Dataflow",
+        "capabilities": [
+          "source-to-sink mapping",
+          "unsafe API propagation",
+          "missing validation hotspots"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "runtime_sandbox_trace",
+        "title": "Runtime Sandbox Tracing",
+        "category": "Runtime",
+        "capabilities": [
+          "scenario trace timeline",
+          "env policy capture",
+          "stderr/stdout evidence snippets"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Source"
+      },
+      {
+        "id": "fuzz_native",
+        "title": "Native Fuzz Campaign",
+        "category": "Fuzzing",
+        "capabilities": [
+          "seed mutation scenarios",
+          "unicode/ascii boundary stress",
+          "crash and timeout surfacing"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Source"
+      },
+      {
+        "id": "fuzz_libafl",
+        "title": "LibAFL Campaign",
+        "category": "Fuzzing",
+        "capabilities": [
+          "structured corpus mode",
+          "coverage-guided seed strategy",
+          "deeper stress profile"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Source"
+      },
+      {
+        "id": "business_regression",
+        "title": "Business Logic Regression",
+        "category": "Regression",
+        "capabilities": [
+          "money-value risk patterns",
+          "rounding precision checks",
+          "critical path TODO/FIXME drift"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      }
+    ],
+    "coverage": {
+      "disassembly_signals": 0,
+      "symbolic_signals": 11,
+      "taint_paths": 0,
+      "business_risks": 0,
+      "fuzz_cases": 0,
+      "runtime_traces": 0
+    },
+    "notes": []
+  }
+}

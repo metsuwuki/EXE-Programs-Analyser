@@ -37,8 +37,7 @@ attrib +h "%DIST%\.engine\analyzer_core.exe" >nul 2>nul
 copy /y "%~dp0README.md" "%DIST%\README.md" >nul
 if exist "%~dp0SECURITY_LAB_MODULES.md" copy /y "%~dp0SECURITY_LAB_MODULES.md" "%DIST%\SECURITY_LAB_MODULES.md" >nul
 if exist "%~dp0logo.png" copy /y "%~dp0logo.png" "%DIST%\logo.png" >nul
-if exist "%~dp0EXE_icon.ico" copy /y "%~dp0EXE_icon.ico" "%DIST%\EXE_icon.ico" >nul
-if exist "%~dp0exe_icon.ico" copy /y "%~dp0exe_icon.ico" "%DIST%\exe_icon.ico" >nul
+if exist "%~dp0icon.ico" copy /y "%~dp0icon.ico" "%DIST%\icon.ico" >nul
 
 echo [4/4] Creating launcher...
 (

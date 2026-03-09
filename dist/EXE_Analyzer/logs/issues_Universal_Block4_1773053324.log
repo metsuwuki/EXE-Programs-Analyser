@@ -1,0 +1,7 @@
+=== EXE Analyzer v2 Issues ===
+Target: C:\Users\User\Desktop\Bohdan Korolov Block-4 1XA\Book Management System\Universal_Block4\Universal_Block4\bin\Debug\net8.0\Universal_Block4.exe
+Mode: STRICT
+Score: 26 | Final: FAIL
+
+[WARN] SUSPICIOUS_IMPORTS (imports | +18) - High-risk imports found: GetProcAddress, LoadLibraryA, ShellExecuteW
+[WARN] LAB_ASM_SIGNAL (asm | +8) - ASM layer detected 5 suspicious instruction signatures.

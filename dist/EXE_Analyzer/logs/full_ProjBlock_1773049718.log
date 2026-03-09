@@ -1,0 +1,52 @@
+=== EXE Analyzer v2 (Rust) ===
+Target: C:\Users\User\Desktop\Bohdan Korolov Block-4 1XA\Book Management System\ProjBlock\bin\Debug\net8.0\ProjBlock.exe
+Mode: STRICT
+SecurityLab profile: standard
+Score: 26
+Final: FAIL
+
+=== Findings ===
+[PASS] PE_PARSE_OK (pe | +0) - PE headers parsed successfully.
+[PASS] ARCH (pe | +0) - Architecture: x64
+[PASS] ENTRYPOINT_EXEC_SECTION (pe | +0) - Entrypoint RVA 0x00011230 is inside executable section.
+[WARN] SUSPICIOUS_IMPORTS (imports | +18) - High-risk imports found: GetProcAddress, LoadLibraryA, ShellExecuteW
+[PASS] NX_COMPAT (mitigations | +0) - DEP/NX is enabled.
+[PASS] ASLR_ENABLED (mitigations | +0) - ASLR is enabled.
+[PASS] CFG_ENABLED (mitigations | +0) - Control Flow Guard appears enabled.
+[PASS] STRINGS_NO_SUSPICIOUS_HIT (strings | +0) - No suspicious command/network string patterns from default rules.
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'no_args' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'empty_and_noise_stdin' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'long_arg' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'unicode_arg' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'invalid_path_arg' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'very_long_unicode_arg' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'stdin_long_payload' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'arg_shell_like' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'clean_env' exited with code 0
+[PASS] RUNTIME_EXIT_OK (runtime | +0) - Scenario 'double_path_args' exited with code 0
+[WARN] LAB_ASM_SIGNAL (asm | +8) - ASM layer detected 5 suspicious instruction signatures.
+[PASS] LAB_MODULES_ACTIVE (security-lab | +0) - Security-lab active modules: 4
+
+=== Runtime ===
+no_args | exit=Some(0) | timeout=false | 167 ms | stdout=48B | stderr=0B | reason=clean exit code 0
+empty_and_noise_stdin | exit=Some(0) | timeout=false | 83 ms | stdout=48B | stderr=0B | reason=clean exit code 0
+long_arg | exit=Some(0) | timeout=false | 85 ms | stdout=180B | stderr=0B | reason=clean exit code 0
+unicode_arg | exit=Some(0) | timeout=false | 86 ms | stdout=77B | stderr=0B | reason=clean exit code 0
+invalid_path_arg | exit=Some(0) | timeout=false | 85 ms | stdout=93B | stderr=0B | reason=clean exit code 0
+very_long_unicode_arg | exit=Some(0) | timeout=false | 86 ms | stdout=300B | stderr=0B | reason=clean exit code 0
+stdin_long_payload | exit=Some(0) | timeout=false | 83 ms | stdout=48B | stderr=0B | reason=clean exit code 0
+arg_shell_like | exit=Some(0) | timeout=false | 84 ms | stdout=63B | stderr=0B | reason=clean exit code 0
+clean_env | exit=Some(0) | timeout=false | 43 ms | stdout=48B | stderr=0B | reason=clean exit code 0
+double_path_args | exit=Some(0) | timeout=false | 84 ms | stdout=136B | stderr=0B | reason=clean exit code 0
+
+=== Security-Lab Modules ===
+pe_rules | PE | enabled | active | headers/sections integrity; mitigations scoring; overlay + import risk heuristics
+asm_disasm | ASM | enabled | active | opcode signature scan; branch/call density sampling; packer shellcode hints
+symbolic_pathing | Symbolic | disabled | not selected by profile/custom list | branch complexity estimation; path explosion hot spots; high-risk condition hints
+taint_dataflow | Dataflow | incompatible | not compatible with target type Executable | source-to-sink mapping; unsafe API propagation; missing validation hotspots
+runtime_sandbox_trace | Runtime | enabled | active | scenario trace timeline; env policy capture; stderr/stdout evidence snippets
+fuzz_native | Fuzzing | enabled | active | seed mutation scenarios; unicode/ascii boundary stress; crash and timeout surfacing
+fuzz_libafl | Fuzzing | disabled | not selected by profile/custom list | structured corpus mode; coverage-guided seed strategy; deeper stress profile
+business_regression | Regression | incompatible | not compatible with target type Executable | money-value risk patterns; rounding precision checks; critical path TODO/FIXME drift
+coverage: disasm=5 symbolic=0 taint=0 business=0 fuzz_cases=0 runtime_traces=10
+next: Use --modules <id1,id2> to customize enabled modules for your target type.

@@ -1,0 +1,825 @@
+{
+  "target": "C:\\Users\\User\\Desktop\\Bohdan Korolov Block-4 1XA\\Book Management System\\Universal_Block4\\Universal_Block4\\bin\\Debug\\net8.0\\Universal_Block4.exe",
+  "generated_unix": 1773053324,
+  "mode": "STRICT",
+  "score": 26,
+  "final_status": "FAIL",
+  "findings": [
+    {
+      "severity": "PASS",
+      "code": "PE_PARSE_OK",
+      "category": "pe",
+      "points": 0,
+      "message": "PE headers parsed successfully."
+    },
+    {
+      "severity": "PASS",
+      "code": "ARCH",
+      "category": "pe",
+      "points": 0,
+      "message": "Architecture: x64"
+    },
+    {
+      "severity": "PASS",
+      "code": "ENTRYPOINT_EXEC_SECTION",
+      "category": "pe",
+      "points": 0,
+      "message": "Entrypoint RVA 0x00011230 is inside executable section."
+    },
+    {
+      "severity": "WARN",
+      "code": "SUSPICIOUS_IMPORTS",
+      "category": "imports",
+      "points": 18,
+      "message": "High-risk imports found: GetProcAddress, LoadLibraryA, ShellExecuteW"
+    },
+    {
+      "severity": "PASS",
+      "code": "NX_COMPAT",
+      "category": "mitigations",
+      "points": 0,
+      "message": "DEP/NX is enabled."
+    },
+    {
+      "severity": "PASS",
+      "code": "ASLR_ENABLED",
+      "category": "mitigations",
+      "points": 0,
+      "message": "ASLR is enabled."
+    },
+    {
+      "severity": "PASS",
+      "code": "CFG_ENABLED",
+      "category": "mitigations",
+      "points": 0,
+      "message": "Control Flow Guard appears enabled."
+    },
+    {
+      "severity": "PASS",
+      "code": "STRINGS_NO_SUSPICIOUS_HIT",
+      "category": "strings",
+      "points": 0,
+      "message": "No suspicious command/network string patterns from default rules."
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'no_args' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'empty_and_noise_stdin' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'long_arg' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'unicode_arg' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'invalid_path_arg' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'very_long_unicode_arg' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'stdin_long_payload' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'arg_shell_like' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'clean_env' exited with code 0"
+    },
+    {
+      "severity": "PASS",
+      "code": "RUNTIME_EXIT_OK",
+      "category": "runtime",
+      "points": 0,
+      "message": "Scenario 'double_path_args' exited with code 0"
+    },
+    {
+      "severity": "WARN",
+      "code": "LAB_ASM_SIGNAL",
+      "category": "asm",
+      "points": 8,
+      "message": "ASM layer detected 5 suspicious instruction signatures."
+    },
+    {
+      "severity": "PASS",
+      "code": "LAB_MODULES_ACTIVE",
+      "category": "security-lab",
+      "points": 0,
+      "message": "Security-lab active modules: 5"
+    }
+  ],
+  "runtime": [
+    {
+      "scenario": "no_args",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 83,
+      "stdout_len": 48,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053323,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=0 stdin_bytes=1 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 3,
+            "stage": "process_spawned",
+            "detail": "pid=10956"
+          },
+          {
+            "at_ms": 3,
+            "stage": "stdin_written",
+            "detail": "bytes=1"
+          },
+          {
+            "at_ms": 83,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 83,
+            "stage": "output_captured",
+            "detail": "stdout=48B stderr=0B"
+          },
+          {
+            "at_ms": 83,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 0\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "empty_and_noise_stdin",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 42,
+      "stdout_len": 48,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=0 stdin_bytes=16 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 1,
+            "stage": "process_spawned",
+            "detail": "pid=5728"
+          },
+          {
+            "at_ms": 1,
+            "stage": "stdin_written",
+            "detail": "bytes=16"
+          },
+          {
+            "at_ms": 41,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 42,
+            "stage": "output_captured",
+            "detail": "stdout=48B stderr=0B"
+          },
+          {
+            "at_ms": 42,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 0\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "long_arg",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 44,
+      "stdout_len": 180,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=1 stdin_bytes=0 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 3,
+            "stage": "process_spawned",
+            "detail": "pid=21440"
+          },
+          {
+            "at_ms": 4,
+            "stage": "stdin_written",
+            "detail": "bytes=0"
+          },
+          {
+            "at_ms": 44,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 44,
+            "stage": "output_captured",
+            "detail": "stdout=180B stderr=0B"
+          },
+          {
+            "at_ms": 44,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 1\\narg[0]=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "unicode_arg",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 42,
+      "stdout_len": 77,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=1 stdin_bytes=0 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 2,
+            "stage": "process_spawned",
+            "detail": "pid=15692"
+          },
+          {
+            "at_ms": 2,
+            "stage": "stdin_written",
+            "detail": "bytes=0"
+          },
+          {
+            "at_ms": 42,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 42,
+            "stage": "output_captured",
+            "detail": "stdout=77B stderr=0B"
+          },
+          {
+            "at_ms": 42,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 1\\narg[0]=тест_输入_🔥\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "invalid_path_arg",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 43,
+      "stdout_len": 93,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=1 stdin_bytes=0 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 2,
+            "stage": "process_spawned",
+            "detail": "pid=17468"
+          },
+          {
+            "at_ms": 2,
+            "stage": "stdin_written",
+            "detail": "bytes=0"
+          },
+          {
+            "at_ms": 43,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 43,
+            "stage": "output_captured",
+            "detail": "stdout=93B stderr=0B"
+          },
+          {
+            "at_ms": 43,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 1\\narg[0]=Z:\\definitely_missing_file_12345.tmp\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "very_long_unicode_arg",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 43,
+      "stdout_len": 300,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=1 stdin_bytes=0 clear_env=false timeout=4s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 3,
+            "stage": "process_spawned",
+            "detail": "pid=23780"
+          },
+          {
+            "at_ms": 3,
+            "stage": "stdin_written",
+            "detail": "bytes=0"
+          },
+          {
+            "at_ms": 43,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 43,
+            "stage": "output_captured",
+            "detail": "stdout=300B stderr=0B"
+          },
+          {
+            "at_ms": 43,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 1\\narg[0]=ЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮ...\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "stdin_long_payload",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 42,
+      "stdout_len": 48,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=0 stdin_bytes=12000 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 1,
+            "stage": "process_spawned",
+            "detail": "pid=12336"
+          },
+          {
+            "at_ms": 1,
+            "stage": "stdin_written",
+            "detail": "bytes=12000"
+          },
+          {
+            "at_ms": 42,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 42,
+            "stage": "output_captured",
+            "detail": "stdout=48B stderr=0B"
+          },
+          {
+            "at_ms": 42,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 0\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "arg_shell_like",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 43,
+      "stdout_len": 63,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=1 stdin_bytes=0 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 2,
+            "stage": "process_spawned",
+            "detail": "pid=22448"
+          },
+          {
+            "at_ms": 2,
+            "stage": "stdin_written",
+            "detail": "bytes=0"
+          },
+          {
+            "at_ms": 42,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 43,
+            "stage": "output_captured",
+            "detail": "stdout=63B stderr=0B"
+          },
+          {
+            "at_ms": 43,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 1\\narg[0]=&|<>^%\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "clean_env",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 41,
+      "stdout_len": 48,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "sandbox-env",
+        "sandbox_profile": "isolated_env",
+        "env_policy": "env_clear",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=0 stdin_bytes=1 clear_env=true timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment variables cleared"
+          },
+          {
+            "at_ms": 1,
+            "stage": "process_spawned",
+            "detail": "pid=15208"
+          },
+          {
+            "at_ms": 1,
+            "stage": "stdin_written",
+            "detail": "bytes=1"
+          },
+          {
+            "at_ms": 41,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 41,
+            "stage": "output_captured",
+            "detail": "stdout=48B stderr=0B"
+          },
+          {
+            "at_ms": 41,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 0\\n",
+        "stderr_preview": ""
+      }
+    },
+    {
+      "scenario": "double_path_args",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 43,
+      "stdout_len": 136,
+      "stderr_len": 0,
+      "failure_reason": "clean exit code 0",
+      "trace": {
+        "scenario_kind": "input-stress",
+        "sandbox_profile": "baseline",
+        "env_policy": "inherit",
+        "working_dir": "C:\\Users\\User\\Downloads\\EXE-Programs-Analyser-main\\EXE-Programs-Analyser-main\\dist\\EXE_Analyzer",
+        "started_unix": 1773053324,
+        "finished_unix": 1773053324,
+        "events": [
+          {
+            "at_ms": 0,
+            "stage": "scenario_start",
+            "detail": "args=2 stdin_bytes=0 clear_env=false timeout=3s"
+          },
+          {
+            "at_ms": 0,
+            "stage": "sandbox_policy",
+            "detail": "environment inherited"
+          },
+          {
+            "at_ms": 2,
+            "stage": "process_spawned",
+            "detail": "pid=28936"
+          },
+          {
+            "at_ms": 2,
+            "stage": "stdin_written",
+            "detail": "bytes=0"
+          },
+          {
+            "at_ms": 43,
+            "stage": "wait_finished",
+            "detail": "timed_out=false"
+          },
+          {
+            "at_ms": 43,
+            "stage": "output_captured",
+            "detail": "stdout=136B stderr=0B"
+          },
+          {
+            "at_ms": 43,
+            "stage": "scenario_finish",
+            "detail": "exit=Some(0) reason=clean exit code 0"
+          }
+        ],
+        "stdout_preview": "ProjBlock: non-interactive mode\\nArgs count: 2\\narg[0]=C:\\this_path_should_not_exist_1.bin\\narg[1]=C:\\this_path_should_not_exist_2.bin\\n",
+        "stderr_preview": ""
+      }
+    }
+  ],
+  "telemetry": {
+    "enabled": true,
+    "profile": "aggressive",
+    "custom_selection": false,
+    "confirmation_required": false,
+    "recommended_next_step": "Use --modules <id1,id2> to customize enabled modules for your target type.",
+    "selected_modules": [
+      {
+        "id": "pe_rules",
+        "title": "PE Structural Rules",
+        "category": "PE",
+        "capabilities": [
+          "headers/sections integrity",
+          "mitigations scoring",
+          "overlay + import risk heuristics"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "asm_disasm",
+        "title": "ASM Signature + Pseudo Disassembly",
+        "category": "ASM",
+        "capabilities": [
+          "opcode signature scan",
+          "branch/call density sampling",
+          "packer shellcode hints"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "symbolic_pathing",
+        "title": "Symbolic Path Explorer",
+        "category": "Symbolic",
+        "capabilities": [
+          "branch complexity estimation",
+          "path explosion hot spots",
+          "high-risk condition hints"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "taint_dataflow",
+        "title": "Dataflow + Taint",
+        "category": "Dataflow",
+        "capabilities": [
+          "source-to-sink mapping",
+          "unsafe API propagation",
+          "missing validation hotspots"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Executable"
+      },
+      {
+        "id": "runtime_sandbox_trace",
+        "title": "Runtime Sandbox Tracing",
+        "category": "Runtime",
+        "capabilities": [
+          "scenario trace timeline",
+          "env policy capture",
+          "stderr/stdout evidence snippets"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "fuzz_native",
+        "title": "Native Fuzz Campaign",
+        "category": "Fuzzing",
+        "capabilities": [
+          "seed mutation scenarios",
+          "unicode/ascii boundary stress",
+          "crash and timeout surfacing"
+        ],
+        "status": "enabled",
+        "reason": "active"
+      },
+      {
+        "id": "fuzz_libafl",
+        "title": "LibAFL Campaign",
+        "category": "Fuzzing",
+        "capabilities": [
+          "structured corpus mode",
+          "coverage-guided seed strategy",
+          "deeper stress profile"
+        ],
+        "status": "incompatible",
+        "reason": "requires --fuzz-engine libafl"
+      },
+      {
+        "id": "business_regression",
+        "title": "Business Logic Regression",
+        "category": "Regression",
+        "capabilities": [
+          "money-value risk patterns",
+          "rounding precision checks",
+          "critical path TODO/FIXME drift"
+        ],
+        "status": "incompatible",
+        "reason": "not compatible with target type Executable"
+      }
+    ],
+    "coverage": {
+      "disassembly_signals": 5,
+      "symbolic_signals": 6,
+      "taint_paths": 0,
+      "business_risks": 0,
+      "fuzz_cases": 0,
+      "runtime_traces": 10
+    },
+    "notes": []
+  }
+}

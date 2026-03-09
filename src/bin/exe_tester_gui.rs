@@ -2878,8 +2878,7 @@ fn resolve_asset_path(file_name: &str) -> Option<PathBuf> {
 }
 
 fn load_icon_data() -> Option<egui::IconData> {
-    let path = resolve_asset_path("exe_icon.ico")
-        .or_else(|| resolve_asset_path("EXE_icon.ico"))?;
+    let path = resolve_asset_path("icon.ico")?;
     let reader = ImageReader::open(path).ok()?;
     let image = reader.decode().ok()?.to_rgba8();
     let (width, height) = image.dimensions();

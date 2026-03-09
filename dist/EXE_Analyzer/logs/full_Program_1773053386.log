@@ -1,0 +1,29 @@
+=== EXE Analyzer v2 (Rust) ===
+Target: C:\Users\User\Desktop\Bohdan Korolov Block-4 1XA\Book Management System\Universal_Block4\Universal_Block4\Program.cs
+Mode: STRICT
+SecurityLab profile: aggressive
+Score: 0
+Final: PASS
+
+=== Findings ===
+[PASS] SOURCE_TARGET_DETECTED (preflight | +0) - Source target detected: C#
+[PASS] SOURCE_ANALYSIS_MODE (source | +0) - Running source analysis mode for C#
+[PASS] SOURCE_SIZE_INFO (source | +0) - C# file: 255 lines, 11474 bytes (C:\Users\User\Desktop\Bohdan Korolov Block-4 1XA\Book Management System\Universal_Block4\Universal_Block4\Program.cs)
+[PASS] SOURCE_NO_SUSPICIOUS_PATTERN (source | +0) - No suspicious source patterns from current heuristic rules.
+[PASS] SOURCE_DELIMITERS_OK (source | +0) - Basic delimiter balance check passed.
+[PASS] RUNTIME_SKIPPED_SOURCE (runtime | +0) - Runtime stress scenarios are skipped for source files.
+[PASS] LAB_MODULES_ACTIVE (security-lab | +0) - Security-lab active modules: 3
+
+=== Runtime ===
+
+=== Security-Lab Modules ===
+pe_rules | PE | incompatible | not compatible with target type Source | headers/sections integrity; mitigations scoring; overlay + import risk heuristics
+asm_disasm | ASM | incompatible | not compatible with target type Source | opcode signature scan; branch/call density sampling; packer shellcode hints
+symbolic_pathing | Symbolic | enabled | active | branch complexity estimation; path explosion hot spots; high-risk condition hints
+taint_dataflow | Dataflow | enabled | active | source-to-sink mapping; unsafe API propagation; missing validation hotspots
+runtime_sandbox_trace | Runtime | incompatible | not compatible with target type Source | scenario trace timeline; env policy capture; stderr/stdout evidence snippets
+fuzz_native | Fuzzing | incompatible | not compatible with target type Source | seed mutation scenarios; unicode/ascii boundary stress; crash and timeout surfacing
+fuzz_libafl | Fuzzing | incompatible | not compatible with target type Source | structured corpus mode; coverage-guided seed strategy; deeper stress profile
+business_regression | Regression | enabled | active | money-value risk patterns; rounding precision checks; critical path TODO/FIXME drift
+coverage: disasm=0 symbolic=11 taint=0 business=0 fuzz_cases=0 runtime_traces=0
+next: Use --modules <id1,id2> to customize enabled modules for your target type.

@@ -27,4 +27,21 @@ if errorlevel 1 (
 echo [4/4] Done.
 echo Portable: "%~dp0dist\EXE_Analyzer"
 echo Setup:    "%~dp0dist\Metsuki_EXE_Analyzer_Setup_*.exe"
+
+REM Handle --sign and --skip-setup flags
+set "PS_ARGS="
+
+if /i "%~1"=="--sign" (
+  set "PS_ARGS=-Sign"
+) else if /i "%~1"=="--skip-setup" (
+  set "PS_ARGS=-SkipSetup"
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build_release.ps1" %PS_ARGS%
+if errorlevel 1 (
+  echo [ERROR] build_release.ps1 failed.
+  exit /b 1
+)
+
+echo [DONE] Artifacts are in "%~dp0dist"
 exit /b 0
