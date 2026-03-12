@@ -13,6 +13,7 @@ use image::ImageReader;
 use notify::{EventKind, RecursiveMode, Watcher, recommended_watcher};
 use rfd::FileDialog;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -176,6 +177,11 @@ enum UiEvent {
         stderr: String,
     },
     WatchedFileChanged(String),
+    VsdbgInstallFinished {
+        success: bool,
+        path: Option<PathBuf>,
+        details: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,12 +236,12 @@ impl UiLanguage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DebugBackend {
-    GdbCli,
+    VsDbgCli,
 }
 
 impl DebugBackend {
     fn label(self) -> &'static str {
-        "GDB CLI"
+        "Visual Studio Debugger (vsdbg)"
     }
 }
 
@@ -315,8 +321,9 @@ struct AnalyzerGuiApp {
     debugger_expected_stdout_contains: String,
     debugger_expected_stderr_contains: String,
     debugger_backend: DebugBackend,
-    gdb_available: bool,
-    gdb_command: Option<PathBuf>,
+    vsdbg_available: bool,
+    vsdbg_command: Option<PathBuf>,
+    vsdbg_install_is_running: bool,
     debugger_is_running: bool,
     debugger_cancel_flag: Arc<AtomicBool>,
     debugger_command_input: String,
@@ -358,7 +365,7 @@ struct AnalyzerGuiApp {
 
 impl Default for AnalyzerGuiApp {
     fn default() -> Self {
-        let gdb_command = detect_gdb_command();
+        let vsdbg_command = detect_vsdbg_command();
         Self {
             target_path: String::new(),
             out_dir: "logs".to_string(),
@@ -393,9 +400,10 @@ impl Default for AnalyzerGuiApp {
             debugger_expected_exception: false,
             debugger_expected_stdout_contains: String::new(),
             debugger_expected_stderr_contains: String::new(),
-            debugger_backend: DebugBackend::GdbCli,
-            gdb_available: gdb_command.is_some(),
-            gdb_command,
+            debugger_backend: DebugBackend::VsDbgCli,
+            vsdbg_available: vsdbg_command.is_some(),
+            vsdbg_command,
+            vsdbg_install_is_running: false,
             debugger_is_running: false,
             debugger_cancel_flag: Arc::new(AtomicBool::new(false)),
             debugger_command_input: String::new(),
@@ -765,28 +773,15 @@ impl AnalyzerGuiApp {
     }
 
     fn send_debug_next(&mut self) {
-        if self.debugger_backend == DebugBackend::GdbCli {
-            self.send_debugger_command("next".to_string());
-        } else {
-            self.append_log("[debug] Step is available in GDB backend");
-        }
+        self.append_log("[debug] Step command is handled by external Visual Studio debugger");
     }
 
     fn send_debug_continue(&mut self) {
-        if self.debugger_backend == DebugBackend::GdbCli {
-            self.send_debugger_command("continue".to_string());
-        } else {
-            self.append_log("[debug] Auto forward is available in GDB backend");
-        }
+        self.append_log("[debug] Continue command is handled by external Visual Studio debugger");
     }
 
     fn send_debug_pause(&mut self) {
-        if self.debugger_backend == DebugBackend::GdbCli {
-            self.send_debugger_command("backtrace".to_string());
-            self.append_log("[debug] Pause requested (backtrace)");
-        } else {
-            self.append_log("[debug] Pause is not available for this backend");
-        }
+        self.append_log("[debug] Pause command is handled by external Visual Studio debugger");
     }
 
     fn add_debug_replay_session(&mut self) {
@@ -905,7 +900,7 @@ impl AnalyzerGuiApp {
 
         let timeout = self.timeout_secs.trim().parse::<u64>().unwrap_or(10).max(1);
         let runs = self.runs.trim().parse::<u32>().unwrap_or(10).max(1);
-        let out_dir = PathBuf::from(self.out_dir.trim());
+        let out_dir = self.resolve_out_dir();
         let strict_mode = self.strict_mode;
         let lab_enabled = true;
         let lab_profile = self.lab_profile.as_cli_value().to_string();
@@ -1153,6 +1148,133 @@ impl AnalyzerGuiApp {
         self.show_logs_window = true;
     }
 
+    fn ensure_ui_event_sender(&mut self) -> Sender<UiEvent> {
+        if let Some(tx) = &self.ui_tx {
+            return tx.clone();
+        }
+
+        let (tx, rx) = mpsc::channel::<UiEvent>();
+        self.rx = Some(rx);
+        self.ui_tx = Some(tx.clone());
+        tx
+    }
+
+    fn install_vsdbg(&mut self) {
+        if self.vsdbg_install_is_running {
+            return;
+        }
+
+        #[cfg(not(windows))]
+        {
+            self.append_log("[vsdbg] Automatic install is currently supported only on Windows");
+            return;
+        }
+
+        #[cfg(windows)]
+        {
+            self.vsdbg_install_is_running = true;
+            self.append_log(
+                "[vsdbg] Prerequisite: install Visual Studio Code before using this setup.",
+            );
+            self.append_log(
+                "[vsdbg] Prerequisite: install C# Dev Kit (ms-dotnettools.csdevkit) or C# (ms-dotnettools.csharp).",
+            );
+            self.append_log("[vsdbg] Installing Visual Studio Code debugger (vsdbg)...");
+            let tx = self.ensure_ui_event_sender();
+            thread::spawn(move || {
+                workers::install_vsdbg_worker(tx);
+            });
+        }
+    }
+
+    fn resolve_out_dir(&self) -> PathBuf {
+        let trimmed = self.out_dir.trim().trim_matches('"');
+        if trimmed.is_empty() {
+            PathBuf::from("logs")
+        } else {
+            PathBuf::from(trimmed)
+        }
+    }
+
+    fn open_logs_folder_on_disk(&mut self) {
+        let out_dir = self.resolve_out_dir();
+        if let Err(e) = fs::create_dir_all(&out_dir) {
+            self.append_log(format!("[logs] Failed to create directory '{}': {}", out_dir.display(), e));
+            return;
+        }
+
+        #[cfg(windows)]
+        {
+            let mut command = Command::new("explorer.exe");
+            command.arg(&out_dir);
+            command.creation_flags(0x08000000);
+            match command.spawn() {
+                Ok(_) => self.append_log(format!("[logs] Opened folder: {}", out_dir.display())),
+                Err(e) => self.append_log(format!("[logs] Failed to open folder '{}': {}", out_dir.display(), e)),
+            }
+        }
+
+        #[cfg(not(windows))]
+        {
+            match Command::new("xdg-open").arg(&out_dir).spawn() {
+                Ok(_) => self.append_log(format!("[logs] Opened folder: {}", out_dir.display())),
+                Err(e) => self.append_log(format!("[logs] Failed to open folder '{}': {}", out_dir.display(), e)),
+            }
+        }
+    }
+
+    fn delete_all_log_files(&mut self) {
+        let out_dir = self.resolve_out_dir();
+        if !out_dir.exists() {
+            self.append_log(format!("[logs] Directory not found: {}", out_dir.display()));
+            return;
+        }
+
+        let mut removed = 0usize;
+        let mut failed = 0usize;
+        let mut stack = vec![out_dir.clone()];
+
+        while let Some(dir) = stack.pop() {
+            let entries = match fs::read_dir(&dir) {
+                Ok(entries) => entries,
+                Err(_) => {
+                    failed += 1;
+                    continue;
+                }
+            };
+
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.to_ascii_lowercase())
+                    .unwrap_or_default();
+                if ext != "log" && ext != "json" {
+                    continue;
+                }
+
+                match fs::remove_file(&path) {
+                    Ok(_) => removed += 1,
+                    Err(_) => failed += 1,
+                }
+            }
+        }
+
+        self.logs.clear();
+        self.append_log(format!(
+            "[logs] Cleanup complete: removed={} failed={} in '{}'",
+            removed,
+            failed,
+            out_dir.display()
+        ));
+    }
+
     fn start_debugger_run(&mut self) {
         if self.is_running || self.debugger_is_running {
             return;
@@ -1172,14 +1294,14 @@ impl AnalyzerGuiApp {
             return;
         }
 
-        self.debugger_backend = DebugBackend::GdbCli;
-        self.gdb_command = detect_gdb_command();
-        self.gdb_available = self.gdb_command.is_some();
-        let gdb_command = self.gdb_command.clone();
-        if gdb_command.is_none() {
-            self.append_log("[debug] GDB is not available. Running fallback debug mode (no step/backtrace).");
-            self.append_log("[debug] Install hint: MSYS2 -> pacman -S mingw-w64-ucrt-x86_64-gdb");
-            self.append_log("[debug] Optional override: set METSUKI_GDB_PATH to gdb.exe path.");
+        self.debugger_backend = DebugBackend::VsDbgCli;
+        self.vsdbg_command = detect_vsdbg_command();
+        self.vsdbg_available = self.vsdbg_command.is_some();
+        let vsdbg_command = self.vsdbg_command.clone();
+        if vsdbg_command.is_none() {
+            self.append_log("[debug] vsdbg is not available. Running fallback debug mode.");
+            self.append_log("[debug] Install hint: Visual Studio debugger tools (vsdbg).");
+            self.append_log("[debug] Optional override: set METSUKI_VSDBG_PATH to vsdbg.exe path.");
         }
 
         let timeout = self
@@ -1214,10 +1336,10 @@ impl AnalyzerGuiApp {
         self.ui_tx = Some(tx.clone());
         self.restart_file_watcher();
 
-        let backend_label = if gdb_command.is_some() {
+        let backend_label = if vsdbg_command.is_some() {
             self.debugger_backend.label().to_string()
         } else {
-            "Fallback (no GDB)".to_string()
+            "Fallback (no vsdbg)".to_string()
         };
         self.append_log(format!(
             "[debug] Start: backend={} target='{}' args={} timeout={}s",
@@ -1227,11 +1349,11 @@ impl AnalyzerGuiApp {
             timeout
         ));
 
-        if let Some(gdb_command) = gdb_command {
+        if let Some(vsdbg_command) = vsdbg_command {
             let (control_tx, control_rx) = mpsc::channel::<DebugControl>();
             self.debugger_controls_tx = Some(control_tx);
             thread::spawn(move || {
-                workers::debug_worker_gdb(gdb_command, target, args, timeout, cancel, control_rx, tx);
+                workers::debug_worker_vsdbg(vsdbg_command, target, args, timeout, cancel, control_rx, tx);
             });
         } else {
             self.debugger_controls_tx = None;
@@ -1404,6 +1526,37 @@ impl AnalyzerGuiApp {
                 }
                 UiEvent::WatchedFileChanged(path) => {
                     self.append_log(format!("[watcher] File change detected: {}", path));
+                }
+                UiEvent::VsdbgInstallFinished {
+                    success,
+                    path,
+                    details,
+                } => {
+                    self.vsdbg_install_is_running = false;
+                    if success {
+                        if let Some(path) = path {
+                            self.vsdbg_command = Some(path.clone());
+                            self.vsdbg_available = true;
+                            env::set_var("METSUKI_VSDBG_PATH", &path);
+                            self.append_log(format!("[vsdbg] Installed: {}", path.display()));
+                        } else {
+                            self.vsdbg_available = false;
+                            self.append_log("[vsdbg] Installation completed, but path was not returned");
+                        }
+                    } else {
+                        self.vsdbg_available = self
+                            .vsdbg_command
+                            .as_ref()
+                            .map(|p| p.exists())
+                            .unwrap_or(false);
+                        self.append_log("[vsdbg] Installation failed");
+                    }
+
+                    if !details.trim().is_empty() {
+                        for line in details.lines() {
+                            self.append_log(format!("[vsdbg] {}", line));
+                        }
+                    }
                 }
             }
         }
@@ -1596,6 +1749,12 @@ impl eframe::App for AnalyzerGuiApp {
                         if self.is_running || self.debugger_is_running {
                             ui.spinner();
                         }
+                        if ui.button(self.t("Открыть папку", "Open folder", "Ordner oeffnen", "Вiдкрити папку")).clicked() {
+                            self.open_logs_folder_on_disk();
+                        }
+                        if ui.button(self.t("Удалить файлы логов", "Delete log files", "Log-Dateien loeschen", "Видалити файли логiв")).clicked() {
+                            self.delete_all_log_files();
+                        }
                         if ui.button(self.t("Очистить", "Clear", "Leeren", "Очистити")).clicked() {
                             self.logs.clear();
                         }
@@ -1702,6 +1861,14 @@ impl eframe::App for AnalyzerGuiApp {
                         .color(zed_fg_muted()),
                 );
                 ui.add_sized([ui.available_width(), 30.0], egui::TextEdit::singleline(&mut self.out_dir));
+                ui.horizontal(|ui| {
+                    if ui.button(self.t("Открыть папку логов", "Open logs folder", "Log-Ordner oeffnen", "Вiдкрити папку логiв")).clicked() {
+                        self.open_logs_folder_on_disk();
+                    }
+                    if ui.button(self.t("Удалить все логи", "Delete all logs", "Alle Logs loeschen", "Видалити всi логи")).clicked() {
+                        self.delete_all_log_files();
+                    }
+                });
 
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(self.t("Таймаут", "Timeout", "Zeitlimit", "Таймаут")).color(zed_fg_muted()));
@@ -2311,27 +2478,49 @@ impl eframe::App for AnalyzerGuiApp {
                         ui.separator();
 
                         ui.horizontal(|ui| {
-                            self.debugger_backend = DebugBackend::GdbCli;
+                            self.debugger_backend = DebugBackend::VsDbgCli;
                             ui.label(egui::RichText::new(self.t("Бэкенд", "Backend", "Backend", "Бекенд")).color(zed_fg_muted()));
-                            let backend_label = if self.gdb_available {
-                                self.t("GDB (готов)", "GDB (ready)", "GDB (bereit)", "GDB (готовий)")
+                            let backend_label = if self.vsdbg_available {
+                                self.t("vsdbg (готов)", "vsdbg (ready)", "vsdbg (bereit)", "vsdbg (готовий)")
                             } else {
-                                self.t("GDB (нет, fallback)", "GDB (missing, fallback)", "GDB (fehlt, Fallback)", "GDB (нема, fallback)")
+                                self.t("vsdbg (нет, fallback)", "vsdbg (missing, fallback)", "vsdbg (fehlt, fallback)", "vsdbg (нема, fallback)")
                             };
-                            let backend_color = if self.gdb_available {
+                            let backend_color = if self.vsdbg_available {
                                 egui::Color32::from_rgb(73, 182, 117)
                             } else {
                                 egui::Color32::from_rgb(225, 172, 69)
                             };
                             ui.colored_label(backend_color, backend_label);
-                            if ui.button(self.t("Проверить GDB", "Recheck GDB", "GDB pruefen", "Перевiрити GDB")).clicked() {
-                                self.gdb_command = detect_gdb_command();
-                                self.gdb_available = self.gdb_command.is_some();
-                                if let Some(path) = &self.gdb_command {
-                                    self.append_log(format!("[debug] GDB detected: {}", path.display()));
+                            if ui.button(self.t("Проверить vsdbg", "Recheck vsdbg", "vsdbg pruefen", "Перевiрити vsdbg")).clicked() {
+                                self.vsdbg_command = detect_vsdbg_command();
+                                self.vsdbg_available = self.vsdbg_command.is_some();
+                                if let Some(path) = &self.vsdbg_command {
+                                    self.append_log(format!("[debug] vsdbg detected: {}", path.display()));
                                 } else {
-                                    self.append_log("[debug] GDB still not found in PATH or common folders");
+                                    self.append_log("[debug] vsdbg not found in PATH or known folders");
                                 }
+                            }
+                            let install_button = ui.add_enabled(
+                                !self.vsdbg_install_is_running,
+                                egui::Button::new(self.t(
+                                    "Установить vsdbg",
+                                    "Install vsdbg",
+                                    "vsdbg installieren",
+                                    "Встановити vsdbg",
+                                )),
+                            );
+                            let install_clicked = install_button.clicked();
+                            install_button.on_hover_text(self.t(
+                                "Перед установкой: нужен Visual Studio Code и расширение C# Dev Kit (или C#).",
+                                "Before install: Visual Studio Code and C# Dev Kit extension (or C#) are required.",
+                                "Vor der Installation: Visual Studio Code und C# Dev Kit (oder C#) sind erforderlich.",
+                                "Перед встановленням: потрiбен Visual Studio Code i розширення C# Dev Kit (або C#).",
+                            ));
+                            if install_clicked {
+                                self.install_vsdbg();
+                            }
+                            if self.vsdbg_install_is_running {
+                                ui.spinner();
                             }
                             ui.separator();
                             ui.label(egui::RichText::new(self.t("Аргументы", "Args", "Argumente", "Аргументи")).color(zed_fg_muted()));
@@ -2340,7 +2529,7 @@ impl eframe::App for AnalyzerGuiApp {
                             ui.add_sized([66.0, 26.0], egui::TextEdit::singleline(&mut self.debugger_timeout_secs));
                         });
 
-                        let interactive_backend = self.debugger_backend == DebugBackend::GdbCli && self.gdb_available;
+                        let interactive_backend = false;
 
                         ui.horizontal_wrapped(|ui| {
                             if ui
@@ -2452,31 +2641,40 @@ impl eframe::App for AnalyzerGuiApp {
                                 }
                             }
 
-                            if self.gdb_available {
-                                if let Some(path) = &self.gdb_command {
+                            if self.vsdbg_available {
+                                if let Some(path) = &self.vsdbg_command {
                                     ui.monospace(format!(
                                         "{}: {}",
-                                        self.t("Путь GDB", "GDB path", "GDB-Pfad", "Шлях GDB"),
+                                        self.t("Путь vsdbg", "vsdbg path", "vsdbg-Pfad", "Шлях vsdbg"),
                                         path.display()
                                     ));
                                 }
                                 ui.colored_label(
                                     zed_fg_muted(),
                                     self.t(
-                                        "GDB найден: доступны пошаговый режим и backtrace",
-                                        "GDB detected: step mode and backtrace are available",
-                                        "GDB erkannt: Schrittmodus und Backtrace sind verfuegbar",
-                                        "GDB знайдено: доступнi покроковий режим i backtrace",
+                                        "vsdbg найден: запуск идет через Visual Studio Debugger CLI, без старта Visual Studio IDE",
+                                        "vsdbg detected: launch goes through Visual Studio Debugger CLI without opening Visual Studio IDE",
+                                        "vsdbg erkannt: Start erfolgt ueber Visual Studio Debugger CLI ohne Visual Studio IDE",
+                                        "vsdbg знайдено: запуск йде через Visual Studio Debugger CLI без старту Visual Studio IDE",
                                     ),
                                 );
                             } else {
                                 ui.colored_label(
                                     egui::Color32::from_rgb(225, 172, 69),
                                     self.t(
-                                        "GDB не найден: работает fallback-дебаг без шага/backtrace. Для полного режима установите GDB и нажмите 'Проверить GDB'.",
-                                        "GDB not found: fallback debug works without step/backtrace. For full mode install GDB and click 'Recheck GDB'.",
-                                        "GDB nicht gefunden: Fallback-Debug ohne Schritt/Backtrace aktiv. Fuer Vollmodus GDB installieren und 'GDB pruefen' klicken.",
-                                        "GDB не знайдено: працює fallback-дебаг без кроку/backtrace. Для повного режиму встановiть GDB i натиснiть 'Перевiрити GDB'.",
+                                        "vsdbg не найден: работает fallback-дебаг. Для backend Visual Studio Debugger установите vsdbg и нажмите 'Проверить vsdbg'.",
+                                        "vsdbg not found: fallback debug is active. Install vsdbg and click 'Recheck vsdbg'.",
+                                        "vsdbg nicht gefunden: Fallback-Debug ist aktiv. Installieren Sie vsdbg und klicken Sie 'vsdbg pruefen'.",
+                                        "vsdbg не знайдено: активний fallback-дебаг. Встановiть vsdbg i натиснiть 'Перевiрити vsdbg'.",
+                                    ),
+                                );
+                                ui.colored_label(
+                                    zed_fg_muted(),
+                                    self.t(
+                                        "Требования: установленный Visual Studio Code и расширение C# Dev Kit (или C#).",
+                                        "Requirements: installed Visual Studio Code and C# Dev Kit extension (or C#).",
+                                        "Voraussetzungen: installiertes Visual Studio Code und C# Dev Kit (oder C#).",
+                                        "Вимоги: встановлений Visual Studio Code i розширення C# Dev Kit (або C#).",
                                     ),
                                 );
                             }
@@ -2754,31 +2952,25 @@ fn truncate_label(text: &str, max: usize) -> String {
     chars.into_iter().take(keep).collect::<String>() + "…"
 }
 
-fn detect_gdb_command() -> Option<PathBuf> {
-    if let Some(path) = env::var_os("METSUKI_GDB_PATH") {
-        let candidate = PathBuf::from(path);
-        if gdb_probe_success(&candidate) {
-            return Some(candidate);
+fn detect_vsdbg_command() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Some(path) = env::var_os("METSUKI_VSDBG_PATH") {
+        candidates.push(PathBuf::from(path));
+    }
+
+    candidates.extend(vsdbg_local_candidates());
+    candidates.extend(vsdbg_path_candidates());
+    candidates.extend(vsdbg_where_candidates());
+    candidates.extend(vsdbg_windows_candidates());
+
+    let mut seen = HashSet::new();
+    for candidate in candidates {
+        let key = vsdbg_candidate_key(&candidate);
+        if !seen.insert(key) {
+            continue;
         }
-    }
-
-    for candidate in gdb_local_candidates() {
-        if gdb_probe_success(&candidate) {
-            return Some(candidate);
-        }
-    }
-
-    let path_candidate = if cfg!(windows) {
-        PathBuf::from("gdb.exe")
-    } else {
-        PathBuf::from("gdb")
-    };
-    if gdb_probe_success(&path_candidate) {
-        return Some(path_candidate);
-    }
-
-    for candidate in gdb_windows_candidates() {
-        if gdb_probe_success(&candidate) {
+        if vsdbg_probe_available(&candidate) {
             return Some(candidate);
         }
     }
@@ -2786,36 +2978,260 @@ fn detect_gdb_command() -> Option<PathBuf> {
     None
 }
 
-fn gdb_local_candidates() -> Vec<PathBuf> {
-    let gdb_name = if cfg!(windows) { "gdb.exe" } else { "gdb" };
+fn vsdbg_path_candidates() -> Vec<PathBuf> {
+    if cfg!(windows) {
+        vec![PathBuf::from("vsdbg.exe"), PathBuf::from("vsdbg")]
+    } else {
+        vec![PathBuf::from("vsdbg")]
+    }
+}
+
+fn vsdbg_candidate_key(path: &Path) -> String {
+    if cfg!(windows) {
+        path.to_string_lossy().replace('/', "\\").to_ascii_lowercase()
+    } else {
+        path.to_string_lossy().to_string()
+    }
+}
+
+fn vsdbg_local_candidates() -> Vec<PathBuf> {
+    let vsdbg_name = if cfg!(windows) { "vsdbg.exe" } else { "vsdbg" };
     let mut candidates = Vec::new();
 
     if let Ok(cwd) = env::current_dir() {
-        candidates.push(cwd.join(gdb_name));
-        candidates.push(cwd.join(".tools").join("gdb").join("bin").join(gdb_name));
-        candidates.push(cwd.join("tools").join("gdb").join("bin").join(gdb_name));
+        candidates.push(cwd.join(vsdbg_name));
+        candidates.push(cwd.join(".tools").join("vsdbg").join(vsdbg_name));
+        candidates.push(cwd.join("tools").join("vsdbg").join(vsdbg_name));
     }
 
     if let Ok(exe) = env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
-            candidates.push(exe_dir.join(gdb_name));
-            candidates.push(exe_dir.join(".tools").join("gdb").join("bin").join(gdb_name));
-            candidates.push(exe_dir.join("tools").join("gdb").join("bin").join(gdb_name));
+            candidates.push(exe_dir.join(vsdbg_name));
+            candidates.push(exe_dir.join(".tools").join("vsdbg").join(vsdbg_name));
+            candidates.push(exe_dir.join("tools").join("vsdbg").join(vsdbg_name));
+            candidates.push(exe_dir.join("..").join(".tools").join("vsdbg").join(vsdbg_name));
+            candidates.push(exe_dir.join("..").join("tools").join("vsdbg").join(vsdbg_name));
+        }
+    }
+
+    candidates
+}
+
+fn vsdbg_probe_available(vsdbg_command: &Path) -> bool {
+    let is_vsdbg_name = vsdbg_command
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_ascii_lowercase().contains("vsdbg"))
+        .unwrap_or(false);
+    if !is_vsdbg_name {
+        return false;
+    }
+
+    let mut command = Command::new(vsdbg_command);
+    command.arg("--help").stdout(Stdio::null()).stderr(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        command.creation_flags(0x08000000);
+    }
+
+    command.status().is_ok()
+}
+
+#[cfg(windows)]
+fn vsdbg_where_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    for query in ["vsdbg.exe", "vsdbg"] {
+        let mut command = Command::new("where");
+        command
+            .arg(query)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .creation_flags(0x08000000);
+
+        let Ok(output) = command.output() else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let trimmed = line.trim().trim_matches('"');
+            if trimmed.is_empty() {
+                continue;
+            }
+            candidates.push(PathBuf::from(trimmed));
+        }
+    }
+
+    candidates
+}
+
+#[cfg(not(windows))]
+fn vsdbg_where_candidates() -> Vec<PathBuf> {
+    Vec::new()
+}
+
+#[cfg(windows)]
+fn vsdbg_windows_candidates() -> Vec<PathBuf> {
+    let mut candidates = vec![
+        PathBuf::from(r"C:\Program Files\vsdbg\vsdbg.exe"),
+        PathBuf::from(r"C:\Program Files (x86)\vsdbg\vsdbg.exe"),
+        PathBuf::from(r"C:\tools\vsdbg\vsdbg.exe"),
+        PathBuf::from(r"C:\vsdbg\vsdbg.exe"),
+    ];
+
+    if let Some(user_profile) = env::var_os("USERPROFILE") {
+        let base = PathBuf::from(user_profile);
+        candidates.push(base.join("vsdbg").join("vsdbg.exe"));
+        candidates.push(base.join(".vsdbg").join("vsdbg.exe"));
+        candidates.push(base.join("scoop").join("apps").join("vsdbg").join("current").join("vsdbg.exe"));
+        candidates.extend(vsdbg_vscode_extension_candidates(&base));
+    }
+
+    if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
+        let base = PathBuf::from(local_app_data);
+        candidates.push(base.join("vsdbg").join("vsdbg.exe"));
+    }
+
+    candidates.extend(vsdbg_visual_studio_candidates());
+    candidates.extend(vsdbg_vswhere_candidates());
+
+    candidates
+}
+
+#[cfg(windows)]
+fn vsdbg_visual_studio_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    for env_var in ["ProgramFiles", "ProgramFiles(x86)"] {
+        let Some(base) = env::var_os(env_var) else {
+            continue;
+        };
+
+        let visual_studio_root = PathBuf::from(base).join("Microsoft Visual Studio");
+        let Ok(year_dirs) = fs::read_dir(&visual_studio_root) else {
+            continue;
+        };
+
+        for year_dir in year_dirs.flatten() {
+            let year_path = year_dir.path();
+            if !year_path.is_dir() {
+                continue;
+            }
+
+            for sku in ["Community", "Professional", "Enterprise", "BuildTools"] {
+                let install_root = year_path.join(sku);
+                candidates.push(
+                    install_root
+                        .join("Common7")
+                        .join("IDE")
+                        .join("Extensions")
+                        .join("Microsoft")
+                        .join("Debugger")
+                        .join("vsdbg.exe"),
+                );
+                candidates.push(
+                    install_root
+                        .join("Common7")
+                        .join("IDE")
+                        .join("CommonExtensions")
+                        .join("Microsoft")
+                        .join("Debugger")
+                        .join("vsdbg.exe"),
+                );
+            }
+        }
+    }
+
+    candidates
+}
+
+#[cfg(windows)]
+fn vsdbg_vswhere_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let mut vswhere_paths = Vec::new();
+
+    if let Some(program_files_x86) = env::var_os("ProgramFiles(x86)") {
+        vswhere_paths.push(
+            PathBuf::from(program_files_x86)
+                .join("Microsoft Visual Studio")
+                .join("Installer")
+                .join("vswhere.exe"),
+        );
+    }
+    vswhere_paths.push(PathBuf::from(
+        r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
+    ));
+
+    for vswhere in vswhere_paths {
+        if !vswhere.exists() {
+            continue;
+        }
+
+        let mut find_command = Command::new(&vswhere);
+        find_command
+            .arg("-products")
+            .arg("*")
+            .arg("-find")
+            .arg(r"**\vsdbg.exe")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .creation_flags(0x08000000);
+        if let Ok(output) = find_command.output() {
+            if output.status.success() {
+                for line in String::from_utf8_lossy(&output.stdout).lines() {
+                    let trimmed = line.trim().trim_matches('"');
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+                    candidates.push(PathBuf::from(trimmed));
+                }
+            }
+        }
+
+        let mut install_path_command = Command::new(&vswhere);
+        install_path_command
+            .arg("-products")
+            .arg("*")
+            .arg("-property")
+            .arg("installationPath")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .creation_flags(0x08000000);
+        let Ok(output) = install_path_command.output() else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let trimmed = line.trim().trim_matches('"');
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            let install_path = PathBuf::from(trimmed);
             candidates.push(
-                exe_dir
-                    .join("..")
-                    .join(".tools")
-                    .join("gdb")
-                    .join("bin")
-                    .join(gdb_name),
+                install_path
+                    .join("Common7")
+                    .join("IDE")
+                    .join("Extensions")
+                    .join("Microsoft")
+                    .join("Debugger")
+                    .join("vsdbg.exe"),
             );
             candidates.push(
-                exe_dir
-                    .join("..")
-                    .join("tools")
-                    .join("gdb")
-                    .join("bin")
-                    .join(gdb_name),
+                install_path
+                    .join("Common7")
+                    .join("IDE")
+                    .join("CommonExtensions")
+                    .join("Microsoft")
+                    .join("Debugger")
+                    .join("vsdbg.exe"),
             );
         }
     }
@@ -2823,42 +3239,87 @@ fn gdb_local_candidates() -> Vec<PathBuf> {
     candidates
 }
 
-fn gdb_probe_success(gdb_command: &Path) -> bool {
-    let mut command = Command::new(gdb_command);
-    command.arg("--version").stdout(Stdio::null()).stderr(Stdio::null());
-
-    #[cfg(windows)]
-    {
-        command.creation_flags(0x08000000);
-    }
-
-    command.status().map(|s| s.success()).unwrap_or(false)
-}
-
 #[cfg(windows)]
-fn gdb_windows_candidates() -> Vec<PathBuf> {
-    let mut candidates = vec![
-        PathBuf::from(r"C:\msys64\ucrt64\bin\gdb.exe"),
-        PathBuf::from(r"C:\msys64\mingw64\bin\gdb.exe"),
-        PathBuf::from(r"C:\msys64\clang64\bin\gdb.exe"),
-        PathBuf::from(r"C:\tools\msys64\ucrt64\bin\gdb.exe"),
-        PathBuf::from(r"C:\tools\msys64\mingw64\bin\gdb.exe"),
-        PathBuf::from(r"C:\mingw64\bin\gdb.exe"),
-        PathBuf::from(r"C:\w64devkit\bin\gdb.exe"),
+fn vsdbg_vscode_extension_candidates(user_profile: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let roots = [
+        user_profile.join(".vscode").join("extensions"),
+        user_profile.join(".vscode-insiders").join("extensions"),
     ];
 
-    if let Some(user_profile) = env::var_os("USERPROFILE") {
-        let base = PathBuf::from(user_profile);
-        candidates.push(base.join(r"scoop\apps\gdb\current\bin\gdb.exe"));
-        candidates.push(base.join(r"scoop\apps\gcc\current\bin\gdb.exe"));
-        candidates.push(base.join(r"scoop\apps\llvm\current\bin\gdb.exe"));
+    for root in roots {
+        candidates.extend(vsdbg_collect_extension_candidates(&root));
     }
 
     candidates
 }
 
+#[cfg(windows)]
+fn vsdbg_collect_extension_candidates(root: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let Ok(entries) = fs::read_dir(root) else {
+        return candidates;
+    };
+
+    for entry in entries.flatten() {
+        let extension_dir = entry.path();
+        if !extension_dir.is_dir() {
+            continue;
+        }
+
+        let Some(name) = extension_dir.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        let name = name.to_ascii_lowercase();
+        let is_dotnet_debug_extension = name.starts_with("ms-dotnettools.csharp")
+            || name.starts_with("ms-dotnettools.csdevkit")
+            || name.starts_with("ms-vscode.csharp");
+        if !is_dotnet_debug_extension {
+            continue;
+        }
+
+        let debugger_dir = extension_dir.join(".debugger");
+        candidates.push(debugger_dir.join("vsdbg.exe"));
+        candidates.push(debugger_dir.join("win-x64").join("vsdbg.exe"));
+        candidates.push(debugger_dir.join("x86_64").join("vsdbg.exe"));
+        candidates.extend(vsdbg_find_below(&debugger_dir, 3));
+    }
+
+    candidates
+}
+
+#[cfg(windows)]
+fn vsdbg_find_below(root: &Path, depth_left: usize) -> Vec<PathBuf> {
+    let mut hits = Vec::new();
+    if depth_left == 0 {
+        return hits;
+    }
+
+    let Ok(entries) = fs::read_dir(root) else {
+        return hits;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            hits.extend(vsdbg_find_below(&path, depth_left - 1));
+            continue;
+        }
+
+        let is_vsdbg = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.eq_ignore_ascii_case("vsdbg.exe"))
+            .unwrap_or(false);
+        if is_vsdbg {
+            hits.push(path);
+        }
+    }
+
+    hits
+}
+
 #[cfg(not(windows))]
-fn gdb_windows_candidates() -> Vec<PathBuf> {
+fn vsdbg_windows_candidates() -> Vec<PathBuf> {
     Vec::new()
 }
 
@@ -2894,7 +3355,7 @@ fn main() -> eframe::Result<()> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1380.0, 860.0])
         .with_min_inner_size([980.0, 620.0])
-        .with_title("Metsuki EXE Analyzer");
+        .with_title("EXE Analyzer");
 
     if let Some(icon_data) = load_icon_data() {
         viewport = viewport.with_icon(Arc::new(icon_data));
@@ -2902,7 +3363,7 @@ fn main() -> eframe::Result<()> {
     native_options.viewport = viewport;
 
     eframe::run_native(
-        "Metsuki EXE Analyzer",
+        "EXE Analyzer",
         native_options,
         Box::new(|cc| {
             theming::apply_theme(&cc.egui_ctx);

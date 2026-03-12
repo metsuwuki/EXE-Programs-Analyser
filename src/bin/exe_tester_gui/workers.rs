@@ -147,8 +147,8 @@ pub(crate) fn scan_worker(
     }
 }
 
-pub(crate) fn debug_worker_gdb(
-    gdb_command: PathBuf,
+pub(crate) fn debug_worker_vsdbg(
+    debugger_command: PathBuf,
     target: PathBuf,
     args: Vec<String>,
     timeout_secs: u64,
@@ -156,16 +156,22 @@ pub(crate) fn debug_worker_gdb(
     control_rx: Receiver<DebugControl>,
     tx: Sender<UiEvent>,
 ) {
-    let mut command = Command::new(&gdb_command);
-    command
-        .arg("--quiet")
-        .arg("--nx")
-        .arg("--args")
-        .arg(&target)
-        .args(&args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    if is_visual_studio_ide_executable(&debugger_command) {
+        let _ = tx.send(UiEvent::DebugFinished {
+            exit_code: None,
+            timed_out: false,
+            duration_ms: 0,
+            stdout: String::new(),
+            stderr: format!(
+                "Unsupported debugger path '{}': Visual Studio IDE launch is disabled. Use vsdbg.exe.",
+                debugger_command.display()
+            ),
+        });
+        return;
+    }
+
+    let mut command = build_visual_debugger_command(&debugger_command, &target, &args);
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
 
     #[cfg(windows)]
     {
@@ -182,8 +188,8 @@ pub(crate) fn debug_worker_gdb(
                 duration_ms: start.elapsed().as_millis(),
                 stdout: String::new(),
                 stderr: format!(
-                    "Failed to start gdb at '{}': {}. Install GDB (MSYS2: pacman -S mingw-w64-ucrt-x86_64-gdb) or set METSUKI_GDB_PATH.",
-                    gdb_command.display(),
+                    "Failed to start Visual Studio debugger at '{}': {}. Install Visual Studio debugger tools or set METSUKI_VSDBG_PATH.",
+                    debugger_command.display(),
                     e,
                 ),
             });
@@ -192,30 +198,9 @@ pub(crate) fn debug_worker_gdb(
     };
 
     let _ = tx.send(UiEvent::Log(format!(
-        "[debug] GDB backend started ({})",
-        gdb_command.display()
+        "[debug] Visual Studio debugger backend started ({})",
+        debugger_command.display()
     )));
-
-    let mut child_stdin = child.stdin.take();
-    if let Some(stdin) = child_stdin.as_mut() {
-        let bootstrap = [
-            "set pagination off",
-            "set confirm off",
-            "set breakpoint pending on",
-            "set print thread-events off",
-            "set startup-with-shell off",
-            "starti",
-        ];
-        for command in bootstrap {
-            if let Err(e) = send_gdb_command(stdin, command) {
-                let _ = tx.send(UiEvent::Log(format!(
-                    "[debug] Failed to send bootstrap command '{}': {}",
-                    command, e
-                )));
-                break;
-            }
-        }
-    }
 
     let mut stream_threads = Vec::new();
     if let Some(stdout) = child.stdout.take() {
@@ -234,14 +219,10 @@ pub(crate) fn debug_worker_gdb(
         while let Ok(control) = control_rx.try_recv() {
             match control {
                 DebugControl::Command(cmd) => {
-                    if let Some(stdin) = child_stdin.as_mut() {
-                        if let Err(e) = send_gdb_command(stdin, &cmd) {
-                            let _ = tx.send(UiEvent::Log(format!(
-                                "[debug] Failed to send command '{}': {}",
-                                cmd, e
-                            )));
-                        }
-                    }
+                    let _ = tx.send(UiEvent::Log(format!(
+                        "[debug] Interactive command '{}' ignored: handled by Visual Studio debugger UI",
+                        cmd
+                    )));
                 }
                 DebugControl::Stop => {
                     stop_requested = true;
@@ -291,7 +272,6 @@ pub(crate) fn debug_worker_gdb(
         }
     }
 
-    drop(child_stdin);
     for handle in stream_threads {
         let _ = handle.join();
     }
@@ -305,10 +285,195 @@ pub(crate) fn debug_worker_gdb(
     });
 }
 
-fn send_gdb_command(stdin: &mut std::process::ChildStdin, command: &str) -> std::io::Result<()> {
-    std::io::Write::write_all(stdin, command.as_bytes())?;
-    std::io::Write::write_all(stdin, b"\n")?;
-    std::io::Write::flush(stdin)
+pub(crate) fn install_vsdbg_worker(tx: Sender<UiEvent>) {
+    #[cfg(not(windows))]
+    {
+        let _ = tx.send(UiEvent::VsdbgInstallFinished {
+            success: false,
+            path: None,
+            details: "Automatic vsdbg install is currently supported only on Windows".to_string(),
+        });
+        return;
+    }
+
+    #[cfg(windows)]
+    {
+        let Some(user_profile) = env::var_os("USERPROFILE") else {
+            let _ = tx.send(UiEvent::VsdbgInstallFinished {
+                success: false,
+                path: None,
+                details: "USERPROFILE is not set; cannot resolve vsdbg install path".to_string(),
+            });
+            return;
+        };
+
+        let install_root = PathBuf::from(&user_profile).join("vsdbg");
+        let script_path = PathBuf::from(&user_profile).join("getvsdbg.ps1");
+        let install_root_ps = install_root.display().to_string().replace('\'', "''");
+        let script_path_ps = script_path.display().to_string().replace('\'', "''");
+
+        let _ = tx.send(UiEvent::Log(
+            "[vsdbg] Downloading installer script from https://aka.ms/getvsdbgps1".to_string(),
+        ));
+
+        let download_command = format!(
+            "Invoke-WebRequest https://aka.ms/getvsdbgps1 -OutFile '{}'",
+            script_path_ps
+        );
+
+        let download_output = match run_powershell_command(&download_command) {
+            Ok(output) => output,
+            Err(e) => {
+                let _ = tx.send(UiEvent::VsdbgInstallFinished {
+                    success: false,
+                    path: None,
+                    details: e,
+                });
+                return;
+            }
+        };
+
+        if !download_output.status.success() {
+            let _ = tx.send(UiEvent::VsdbgInstallFinished {
+                success: false,
+                path: None,
+                details: format!(
+                    "getvsdbg.ps1 download failed. {}",
+                    output_summary(&download_output)
+                ),
+            });
+            return;
+        }
+
+        let _ = tx.send(UiEvent::Log(format!(
+            "[vsdbg] Running installer: getvsdbg.ps1 -Version latest -RuntimeID win-x64 -InstallPath {}",
+            install_root.display()
+        )));
+
+        let install_command = format!(
+            "& '{}' -Version latest -RuntimeID win-x64 -InstallPath '{}'",
+            script_path_ps,
+            install_root_ps
+        );
+
+        let install_output = match run_powershell_command(&install_command) {
+            Ok(output) => output,
+            Err(e) => {
+                let _ = tx.send(UiEvent::VsdbgInstallFinished {
+                    success: false,
+                    path: None,
+                    details: e,
+                });
+                return;
+            }
+        };
+
+        if !install_output.status.success() {
+            let _ = tx.send(UiEvent::VsdbgInstallFinished {
+                success: false,
+                path: None,
+                details: format!("vsdbg installation failed. {}", output_summary(&install_output)),
+            });
+            return;
+        }
+
+        let vsdbg_path = detect_vsdbg_command().or_else(|| {
+            let candidate = install_root.join("vsdbg.exe");
+            if vsdbg_probe_available(&candidate) {
+                Some(candidate)
+            } else {
+                None
+            }
+        });
+
+        let Some(vsdbg_path) = vsdbg_path else {
+            let _ = tx.send(UiEvent::VsdbgInstallFinished {
+                success: false,
+                path: None,
+                details: format!(
+                    "vsdbg installation finished but vsdbg.exe was not discovered. Install root: '{}'. {}",
+                    install_root.display(),
+                    output_summary(&install_output)
+                ),
+            });
+            return;
+        };
+
+        let mut verify = Command::new(&vsdbg_path);
+        verify.arg("--help").stdout(Stdio::piped()).stderr(Stdio::piped());
+        verify.creation_flags(0x08000000);
+        let verify_details = match verify.output() {
+            Ok(output) => {
+                let summary = output_summary(&output);
+                if summary.trim().is_empty() {
+                    "vsdbg --help returned no output".to_string()
+                } else {
+                    summary
+                }
+            }
+            Err(e) => format!("Installed, but verification failed: {}", e),
+        };
+
+        let _ = tx.send(UiEvent::VsdbgInstallFinished {
+            success: true,
+            path: Some(vsdbg_path),
+            details: verify_details,
+        });
+    }
+}
+
+fn build_visual_debugger_command(debugger_command: &Path, target: &Path, args: &[String]) -> Command {
+    let mut command = Command::new(debugger_command);
+    command.arg("--").arg(target).args(args);
+
+    command
+}
+
+#[cfg(windows)]
+fn run_powershell_command(script: &str) -> Result<std::process::Output, String> {
+    let mut command = Command::new("powershell");
+    command
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg(script)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    command.creation_flags(0x08000000);
+
+    command
+        .output()
+        .map_err(|e| format!("Failed to run PowerShell command: {}", e))
+}
+
+fn output_summary(output: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let total_line_count = stdout.lines().count() + stderr.lines().count();
+    let mut lines = stdout
+        .lines()
+        .chain(stderr.lines())
+        .filter(|line| !line.trim().is_empty())
+        .take(18)
+        .map(|line| line.trim().to_string())
+        .collect::<Vec<_>>();
+
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    if total_line_count > 18 {
+        lines.push("...".to_string());
+    }
+    lines.join("\n")
+}
+
+fn is_visual_studio_ide_executable(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("devenv.exe") || name.eq_ignore_ascii_case("devenv"))
+        .unwrap_or(false)
 }
 
 pub(crate) fn debug_worker_native(
@@ -346,7 +511,7 @@ pub(crate) fn debug_worker_native(
     };
 
     let _ = tx.send(UiEvent::Log(
-        "[debug] Fallback debug mode started (no GDB step/backtrace)".to_string(),
+        "[debug] Fallback debug mode started (without Visual Studio debugger integration)".to_string(),
     ));
 
     let mut stream_threads = Vec::new();
