@@ -9,15 +9,38 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..")
 
+function Resolve-BrandingAssetPath {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$RepositoryRoot,
+		[Parameter(Mandatory = $true)]
+		[string[]]$RelativeCandidates
+	)
+
+	foreach ($rel in $RelativeCandidates) {
+		$candidate = Join-Path $RepositoryRoot $rel
+		if (Test-Path $candidate) {
+			return $candidate
+		}
+	}
+
+	return $null
+}
+
 function New-InstallerBrandingAssets {
 	param(
 		[Parameter(Mandatory = $true)]
 		[string]$RepositoryRoot
 	)
 
-	$logoPath = Join-Path $RepositoryRoot "logo.png"
+	$logoPath = Resolve-BrandingAssetPath -RepositoryRoot $RepositoryRoot -RelativeCandidates @(
+		"assets\metsuki_logo.png",
+		"assets\logo.png",
+		"metsuki_logo.png",
+		"logo.png"
+	)
 	if (-not (Test-Path $logoPath)) {
-		Write-Warning "[WARN] logo.png not found, using default Inno Setup images."
+		Write-Warning "[WARN] logo asset not found, using default Inno Setup images."
 		return
 	}
 
@@ -109,8 +132,20 @@ function Ensure-ValidSetupIcon {
 		[string]$RepositoryRoot
 	)
 
-	$iconPath = Join-Path $RepositoryRoot "icon.ico"
-	$logoPath = Join-Path $RepositoryRoot "logo.png"
+	$iconPath = Resolve-BrandingAssetPath -RepositoryRoot $RepositoryRoot -RelativeCandidates @(
+		"assets\icon.ico",
+		"icon.ico"
+	)
+	$logoPath = Resolve-BrandingAssetPath -RepositoryRoot $RepositoryRoot -RelativeCandidates @(
+		"assets\metsuki_logo.png",
+		"assets\logo.png",
+		"metsuki_logo.png",
+		"logo.png"
+	)
+
+	if (-not $iconPath) {
+		$iconPath = Join-Path $RepositoryRoot "assets\icon.ico"
+	}
 
 	$isValidIcon = $false
 	if (Test-Path $iconPath) {
@@ -120,7 +155,7 @@ function Ensure-ValidSetupIcon {
 			$icon.Dispose()
 			$isValidIcon = $true
 		} catch {
-			Write-Warning "[WARN] icon.ico is not a valid ICO file, regenerating from logo.png"
+			Write-Warning "[WARN] icon.ico is not a valid ICO file, regenerating from logo asset"
 		}
 	}
 
@@ -130,8 +165,13 @@ function Ensure-ValidSetupIcon {
 	}
 
 	if (-not (Test-Path $logoPath)) {
-		Write-Error "[ERROR] Cannot generate icon.ico: logo.png not found"
+		Write-Error "[ERROR] Cannot generate icon.ico: logo asset not found"
 		exit 1
+	}
+
+	$iconDir = Split-Path -Parent $iconPath
+	if (-not (Test-Path $iconDir)) {
+		New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
 	}
 
 	if (-not ("Win32.NativeMethods" -as [type])) {
@@ -179,7 +219,7 @@ public static extern bool DestroyIcon(System.IntPtr hIcon);
 			[Win32.NativeMethods]::DestroyIcon($hIcon) | Out-Null
 		}
 
-		Write-Host "[INFO] Generated fallback icon.ico from logo.png"
+		Write-Host "[INFO] Generated fallback icon.ico from logo asset"
 	} finally {
 		if ($bmp) { $bmp.Dispose() }
 		if ($logo) { $logo.Dispose() }
@@ -199,7 +239,7 @@ function Assert-PortablePayload {
 	}
 
 	$requiredFiles = @(
-		(Join-Path $portableRoot "exe_tester_gui.exe"),
+		(Join-Path $portableRoot "exe_tester_web_gui.exe"),
 		(Join-Path $portableRoot ".engine\analyzer_core.exe")
 	)
 
@@ -302,10 +342,10 @@ Write-Host "[INFO] Installer version: $version"
 $iss = Join-Path $RepoRoot "installer\metsuki_installer.iss"
 if (-not (Test-Path $iss)) { Write-Error "[ERROR] Installer script not found: $iss"; exit 1 }
 
-# Убедиться, что icon.ico валидна для SetupIconFile
+# Убедиться, что assets\icon.ico валидна для SetupIconFile
 Ensure-ValidSetupIcon -RepositoryRoot $RepoRoot
 
-# Обновить изображения мастера установки из logo.png
+# Обновить изображения мастера установки из logo asset
 New-InstallerBrandingAssets -RepositoryRoot $RepoRoot
 
 # Вызов ISCC с определением переменной MyAppVersion, вывод в dist
@@ -340,12 +380,6 @@ if (-not (Test-Path $expectedSetup)) {
 		Write-Error "[ERROR] ISCC finished but no installer executable was produced in: $distDir"
 		exit 1
 	}
-}
-
-$canonicalSetup = Join-Path $distDir "Setup.exe"
-if ((Resolve-Path $expectedSetup).Path -ne (Resolve-Path $canonicalSetup -ErrorAction SilentlyContinue | ForEach-Object { $_.Path })) {
-	Copy-Item -Path $expectedSetup -Destination $canonicalSetup -Force
-	Write-Host "[INFO] Canonical installer alias updated: $canonicalSetup"
 }
 
 Write-Host "[INFO] Installer built successfully: $expectedSetup"

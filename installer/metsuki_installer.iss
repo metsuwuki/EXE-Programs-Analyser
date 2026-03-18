@@ -24,7 +24,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 WizardSizePercent=110
-SetupIconFile=..\icon.ico
+SetupIconFile=..\assets\icon.ico
 WizardImageFile=..\installer\assets\wizard_large.bmp
 WizardSmallImageFile=..\installer\assets\wizard_small.bmp
 DisableDirPage=no
@@ -49,11 +49,9 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 [Types]
 Name: "full"; Description: "{cm:SetupTypeFull}"
 Name: "compact"; Description: "{cm:SetupTypeCompact}"
-Name: "custom"; Description: "{cm:SetupTypeCustom}"; Flags: iscustom
 
 [Components]
-Name: "main"; Description: "Core application files"; Types: full compact custom; Flags: fixed
-Name: "docs"; Description: "Documentation files"; Types: full custom
+Name: "main"; Description: "Core application files"; Types: full compact; Flags: fixed
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -64,31 +62,29 @@ Name: "{app}\logs"
 
 [Files]
 ; Always include app icon in installation directory for stable shortcut/uninstall icon display
-Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: main
+Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 ; Core binaries
-Source: "..\dist\EXE_Analyzer\exe_tester_gui.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: main
+Source: "..\dist\EXE_Analyzer\exe_tester_web_gui.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 ; Core engine (required!)
 Source: "..\dist\EXE_Analyzer\.engine\analyzer_core.exe"; DestDir: "{app}\.engine"; Flags: ignoreversion; Components: main; Attribs: hidden
 ; Optional assets/helpers
 Source: "..\dist\EXE_Analyzer\logo.png"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: main
-Source: "..\dist\EXE_Analyzer\Start Analyzer GUI.cmd"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: main
-; Optional documentation component
-Source: "..\dist\EXE_Analyzer\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: docs
-Source: "..\dist\EXE_Analyzer\SECURITY_LAB_MODULES.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: docs
+Source: "..\dist\EXE_Analyzer\metsuki_logo.png"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: main
 
 [Icons]
-Name: "{group}\Metsuki EXE Analyzer"; Filename: "{app}\exe_tester_gui.exe"; IconFilename: "{app}\icon.ico"
-Name: "{group}\Start Analyzer GUI (CMD)"; Filename: "{app}\Start Analyzer GUI.cmd"; IconFilename: "{app}\icon.ico"; Check: FileExists(ExpandConstant('{app}\Start Analyzer GUI.cmd'))
-Name: "{commondesktop}\Metsuki EXE Analyzer"; Filename: "{app}\exe_tester_gui.exe"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
+Name: "{group}\Metsuki EXE Analyzer"; Filename: "{app}\exe_tester_web_gui.exe"; IconFilename: "{app}\icon.ico"
+Name: "{commondesktop}\Metsuki EXE Analyzer"; Filename: "{app}\exe_tester_web_gui.exe"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
 
 [Registry]
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Metsuki EXE Analyzer"; ValueData: """{app}\exe_tester_gui.exe"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Metsuki EXE Analyzer"; ValueData: """{app}\exe_tester_web_gui.exe"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
-Filename: "{app}\exe_tester_gui.exe"; Description: "{cm:LaunchProgram,Metsuki EXE Analyzer}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\exe_tester_web_gui.exe"; Description: "{cm:LaunchProgram,Metsuki EXE Analyzer}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\logs"
+Type: filesandordirs; Name: "{app}\exe_tester_web_gui.exe.WebView2"
+Type: filesandordirs; Name: "{app}\EBWebView"
 
 [CustomMessages]
 english.DesktopIconTask=Create a desktop icon
@@ -99,7 +95,5 @@ english.SetupTypeFull=Full installation (recommended)
 russian.SetupTypeFull=Полная установка (рекомендуется)
 english.SetupTypeCompact=Compact installation
 russian.SetupTypeCompact=Компактная установка
-english.SetupTypeCustom=Custom installation
-russian.SetupTypeCustom=Выборочная установка
 english.ExtraOptionsGroup=Extra options:
 russian.ExtraOptionsGroup=Дополнительные параметры:

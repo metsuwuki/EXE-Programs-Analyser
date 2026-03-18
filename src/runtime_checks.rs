@@ -74,20 +74,6 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
             timeout_secs: config.timeout_secs.min(3),
         },
         RuntimeScenario {
-            name: "very_long_unicode_arg".to_string(),
-            args: vec!["Ю".repeat(2048)],
-            stdin_payload: String::new(),
-            clear_env: false,
-            timeout_secs: config.timeout_secs.min(4),
-        },
-        RuntimeScenario {
-            name: "stdin_long_payload".to_string(),
-            args: vec![],
-            stdin_payload: "X".repeat(12000),
-            clear_env: false,
-            timeout_secs: config.timeout_secs.min(3),
-        },
-        RuntimeScenario {
             name: "arg_shell_like".to_string(),
             args: vec!["&|<>^%".to_string()],
             stdin_payload: String::new(),
@@ -113,7 +99,34 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
         },
     ];
 
+    if config.analysis_mode == AnalysisMode::Pentest {
+        scenarios.push(RuntimeScenario {
+            name: "very_long_unicode_arg".to_string(),
+            args: vec!["Ю".repeat(2048)],
+            stdin_payload: String::new(),
+            clear_env: false,
+            timeout_secs: config.timeout_secs.min(4),
+        });
+        scenarios.push(RuntimeScenario {
+            name: "stdin_long_payload".to_string(),
+            args: vec![],
+            stdin_payload: "X".repeat(12000),
+            clear_env: false,
+            timeout_secs: config.timeout_secs.min(3),
+        });
+    }
+
     scenarios.extend(build_fuzz_scenarios(config));
+
+    if config.analysis_mode == AnalysisMode::Pentest && config.confirm_extended_tests {
+        scenarios.push(RuntimeScenario {
+            name: "pentest_env_minimal".to_string(),
+            args: vec!["--help".to_string()],
+            stdin_payload: "PING\n".to_string(),
+            clear_env: true,
+            timeout_secs: config.timeout_secs.min(5),
+        });
+    }
 
     if config.runs > scenarios.len() as u32 {
         for idx in (scenarios.len() as u32 + 1)..=config.runs {
@@ -132,6 +145,16 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
 }
 
 fn build_fuzz_scenarios(config: &Config) -> Vec<RuntimeScenario> {
+    if config.analysis_mode == AnalysisMode::Min {
+        return vec![RuntimeScenario {
+            name: "fuzz_ascii_stdin".to_string(),
+            args: vec![],
+            stdin_payload: generate_fuzz_ascii(2048, 0xA51C_9331),
+            clear_env: false,
+            timeout_secs: config.timeout_secs.min(2),
+        }];
+    }
+
     match config.fuzz_engine {
         FuzzEngine::Native => native_fuzz_scenarios(config),
         FuzzEngine::LibAfl => libafl_style_fuzz_scenarios(config),

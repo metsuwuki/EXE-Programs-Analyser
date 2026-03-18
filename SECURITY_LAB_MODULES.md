@@ -1,74 +1,70 @@
 # Security-Lab Modules
 
-This document explains what each analysis module is responsible for, how to select ready profiles, how to customize module sets, and how compatibility/confirmation rules work.
+Security-Lab extends analysis with profile-driven modules and explicit compatibility checks.
 
-## Status Markers
+## Status markers
 
-- `ON`: module is enabled and active.
-- `OFF`: module is currently disabled (not selected).
-- `BLOCKED`: incompatible for current target/build settings.
-- `ASK`: module requires explicit confirmation before running deep checks.
+- `ON`: module is selected and active.
+- `OFF`: module is not selected.
+- `BLOCKED`: module is incompatible with current target/build conditions.
+- `ASK`: module needs explicit opt-in to run extended checks.
 
-## Ready Profiles
+## Profiles
 
-- `standard`: safe default profile for regular scans.
-- `aggressive`: deeper profile with heavier checks that can require confirmation.
+- `standard`: safer default profile.
+- `aggressive`: deeper profile, can include `ASK` modules.
 
-## Module Catalog
+## Module catalog
 
-| ID | Category | Standard | Aggressive | Target | Main Responsibilities |
+| ID | Area | Standard | Aggressive | Target type | Purpose |
 |---|---|---|---|---|---|
-| `pe_rules` | PE | ON | ON | EXE | PE integrity, sections, mitigations, import/overlay risk |
-| `asm_disasm` | ASM | ON | ON | EXE | Opcode signatures, branch/call density, shellcode hints |
-| `symbolic_pathing` | Symbolic | OFF | ASK | EXE + Source | Path complexity, branch pressure, high-risk condition hints |
-| `taint_dataflow` | Dataflow | ON | ON | Source | Source-to-sink tracking, untrusted flow hotspots |
-| `runtime_sandbox_trace` | Runtime | ON | ON | EXE | Runtime scenario telemetry, timeline evidence, env policy |
-| `fuzz_native` | Fuzzing | ON | ON | EXE | Native mutation scenarios, crash/timeout surfacing |
-| `fuzz_libafl` | Fuzzing | OFF | ASK/BLOCKED* | EXE | Coverage-guided campaign via libafl |
-| `business_regression` | Regression | ON | ON | Source | Business/financial logic risk patterns |
+| `pe_rules` | PE | ON | ON | EXE | PE integrity, mitigations, imports, overlay risk |
+| `asm_disasm` | ASM | ON | ON | EXE | Opcode and control-flow heuristics |
+| `symbolic_pathing` | Symbolic | OFF | ASK | EXE + Source | Path complexity and risky branch detection |
+| `taint_dataflow` | Dataflow | ON | ON | Source | Source-to-sink tracking |
+| `runtime_sandbox_trace` | Runtime | ON | ON | EXE | Runtime scenarios and timeline evidence |
+| `fuzz_native` | Fuzzing | ON | ON | EXE | Native mutation checks and timeout/crash surfacing |
+| `fuzz_libafl` | Fuzzing | OFF | ASK/BLOCKED* | EXE | Coverage-guided fuzzing via libafl |
+| `business_regression` | Regression | ON | ON | Source | Business-logic risk patterns |
 
-`*` `fuzz_libafl` is `BLOCKED` unless built with libafl support and run with `--fuzz-engine libafl`.
+`*` `fuzz_libafl` is blocked unless built with `libafl-engine` and executed with `--fuzz-engine libafl`.
 
-## Compatibility Rules
+## Compatibility rules
 
 - EXE-only modules are blocked for source targets.
 - Source-only modules are blocked for executable targets.
-- `fuzz_libafl` is blocked without `--fuzz-engine libafl`.
-- Some aggressive modules are marked `ASK` until `--confirm-extended-tests` is provided.
+- Some aggressive checks require `--confirm-extended-tests`.
+- Optional engines/features can force `BLOCKED` status.
 
-## Selection Options
+## CLI usage examples
 
-Primary path: configure Security-Lab directly in GUI (left inspector panel).
-
-CLI commands below are for developer/internal workflows.
-
-List all modules:
+List available modules:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\target.exe" --list-lab-modules
 ```
 
-Use ready profile:
+Run standard profile:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\target.exe" --lab-profile standard
 ```
 
-Use aggressive profile with confirmation:
+Run aggressive profile with explicit confirmation:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\target.exe" --lab-profile aggressive --confirm-extended-tests
 ```
 
-Use custom module set:
+Run custom module set:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\target.exe" --modules pe_rules,asm_disasm,runtime_sandbox_trace,fuzz_native
 ```
 
-## Recommendation Flow
+## Practical recommendation
 
 1. Start with `standard` profile.
-2. Review `BLOCKED` and `ASK` modules in report telemetry.
-3. Enable `aggressive` and `--confirm-extended-tests` only when deep checks are required.
-4. For CI stability, pin an explicit `--modules` set.
+2. Review `ASK` and `BLOCKED` statuses in output telemetry.
+3. Enable aggressive checks only when needed.
+4. For CI repeatability, pin modules with `--modules`.

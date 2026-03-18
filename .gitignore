@@ -1,5 +1,37 @@
+# Rust build outputs
 /target/
-/.idea/
+
+# Project artifacts
+/dist/
 /logs/
-/*.log
+/Auto Setup/
+
+# Runtime WebView caches (can appear in local runs)
+*.WebView2/
+EBWebView/
+
+# Installer-generated visuals
+/installer/assets/*.bmp
+
+# Temp and logs
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# Rust backup files
 **/*.rs.bk
+
+# IDE/editor
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/tasks.json
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store

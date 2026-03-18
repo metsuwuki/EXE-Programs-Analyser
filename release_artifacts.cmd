@@ -21,7 +21,7 @@ echo [3/4] Build setup installer (optional if Inno Setup is installed)...
 call "%~dp0build_setup.cmd" --skip-portable
 if errorlevel 1 (
   echo [WARN] Setup build skipped. Portable artifact is ready.
-  echo [WARN] Install Inno Setup and run build_setup.cmd to produce Setup.exe
+  echo [WARN] Install Inno Setup and run build_setup.cmd to produce Metsuki_EXE_Analyzer_Setup_*.exe
 )
 
 echo [4/4] Done.

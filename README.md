@@ -1,154 +1,97 @@
 # Metsuki EXE Analyzer
 
-Metsuki EXE Analyzer is a Windows-first analysis tool with a desktop GUI and an internal analysis engine.
-It helps you inspect executable files, run runtime checks, and review structured reports.
+Metsuki EXE Analyzer is a Windows-focused executable analysis toolkit with a desktop WebView UI and a CLI engine.
 
-GUI is the main user workflow. The packaged build is intended to be launched only through the GUI.
+## What is included
 
-## Features
+- `exe_tester_web_gui.exe`: desktop UI host (WebView-based).
+- `.engine/analyzer_core.exe`: internal analysis engine used by the desktop app.
+- `exe_tester` bin: CLI entrypoint for automation and local testing.
 
-- Deep PE analysis: headers, sections, entropy, imports, entry point, overlay.
-- Mitigation checks: ASLR, NX, CFG.
-- Runtime edge-case scenarios (args/stdin/env).
-- `STRICT` and `BALANCED` verdict modes.
-- GUI workspace tabs: Overview, Findings, Runtime, Debugger.
-- Debug diagnosis view: expected vs actual, failure point, probable root cause.
-- Source static checks for `.cs`, `.java`, `.py`, `.go` (plus generic text checks).
-- Report outputs: `full_*.log`, `issues_*.log`, `report_*.json`.
-- Security-lab module catalog with profile/custom selection and compatibility markers.
-- UI localization: Russian, English, German, Ukrainian.
+## Key capabilities
 
-## Quick Start (End Users)
+- PE checks: sections, entropy, imports, mitigations, overlay signals.
+- Runtime scenarios and timing diagnostics.
+- Structured findings with score and severity breakdown.
+- Security-Lab profiles and custom module selection.
+- Localization: English, Russian, Ukrainian, German.
 
-Portable package path:
+## Analysis modes
 
-- `dist/EXE_Analyzer`
+- `MIN`: default safer profile.
+- `PENTEST`: deeper checks; requires explicit confirmation.
 
-Run one of the following:
+## End-user quick start
 
-- `Start Analyzer GUI.cmd`
-- `exe_tester_gui.exe`
+1. Open the portable folder `dist/EXE_Analyzer`.
+2. Run `exe_tester_web_gui.exe`.
 
 Rust and Cargo are not required for end users.
 
 ## Development
 
-```powershell
-cargo build --bins
-cargo run --bin exe_tester_gui
-```
-
-## GitHub Repository Contents
-
-For a public source repository, keep these files in Git:
-
-- `src/` (all Rust sources, including GUI and analyzer engine modules)
-- `scripts/`, `installer/`, `build_*.cmd`, `release_artifacts.cmd`
-- `Cargo.toml`, `Cargo.lock`, `README.md`, `SECURITY.md`, `SECURITY_LAB_MODULES.md`
-- static assets (`icon.ico`, `logo.png`)
-
-Do not commit generated artifacts:
-
-- `target/`
-- `dist/`
-- runtime `logs/`
-
-Internal developer CLI example (backend/testing):
+Build all binaries:
 
 ```powershell
-cargo run --bin exe_tester -- "C:\\path\\to\\app.exe" --strict --timeout 4 --runs 6 --out-dir logs
+cargo build --release --bins
 ```
 
-Security-lab catalog and profile examples:
+Run desktop UI:
 
 ```powershell
-cargo run --bin exe_tester -- "C:\\path\\to\\app.exe" --list-lab-modules
-cargo run --bin exe_tester -- "C:\\path\\to\\app.exe" --lab-profile aggressive --confirm-extended-tests
-cargo run --bin exe_tester -- "C:\\path\\to\\app.exe" --modules pe_rules,asm_disasm,runtime_sandbox_trace,fuzz_native
+cargo run --bin exe_tester_web_gui
 ```
 
-Detailed module matrix:
+Run CLI engine:
 
-- `SECURITY_LAB_MODULES.md`
+```powershell
+cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-min --timeout 4 --runs 6 --out-dir logs
+```
 
-## Internal Engine Exit Codes
+PENTEST mode example:
 
-- `0` = PASS
-- `1` = WARN (`BALANCED` mode)
-- `2` = FAIL
-- `64` = argument/usage error
+```powershell
+cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-pentest --confirm-extended-tests --timeout 4 --runs 8 --out-dir logs
+```
 
-## Build Portable Package
+## Packaging commands
+
+Build portable package:
 
 ```powershell
 build_portable.cmd
 ```
 
-The script builds release binaries and creates a ready-to-run package in `dist/EXE_Analyzer`.
-
-## Build Setup Installer (.exe)
+Build installer:
 
 ```powershell
 build_setup.cmd
 ```
 
-This script:
+Build installer from existing portable output:
 
-- builds (or reuses) `dist/EXE_Analyzer`
-- compiles an installer using Inno Setup (`ISCC.exe`)
+```powershell
+build_setup.cmd --skip-portable
+```
 
-Output:
-
-- `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe`
-
-Notes:
-
-- Inno Setup 6 is required for setup generation.
-- You can point a custom compiler path via `ISCC_EXE` environment variable.
-- If portable build already exists, use `build_setup.cmd --skip-portable`.
-
-## Release Artifacts (Recommended)
+Recommended release pipeline:
 
 ```powershell
 release_artifacts.cmd
 ```
 
-This pipeline runs:
+## Output locations
 
-- `build_portable.cmd` (release build + packaging)
-- `scripts/pre_release_security_check.ps1` (SHA256 manifest + Defender precheck)
-- `build_setup.cmd --skip-portable` (optional Setup.exe when Inno Setup is available)
+- Portable bundle: `dist/EXE_Analyzer`
+- Installer: `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe`
+- Security manifests: `dist/EXE_Analyzer/SHA256SUMS.txt`, `dist/EXE_Analyzer/SECURITY_PRECHECK.txt`
 
-Output files in `dist/EXE_Analyzer`:
+## Security-Lab docs
 
-- `SHA256SUMS.txt`
-- `SECURITY_PRECHECK.txt`
+- Module matrix and profile behavior: `SECURITY_LAB_MODULES.md`
+- Security and false-positive guidance: `SECURITY.md`
 
-## Modes
+## Repository notes
 
-The analyzer uses exactly two verdict modes:
-
-- `BALANCED`
-- `STRICT`
-
-No extra runtime mode switching is required for normal use.
-
-## Security-Lab Compatibility Markers
-
-The security-lab layer marks module status in telemetry/logs:
-
-- `ON` active module
-- `OFF` disabled by profile/custom selection
-- `BLOCKED` incompatible with current target/build settings
-- `ASK` requires explicit `--confirm-extended-tests`
-
-## Security / EDR Notes
-
-- The portable launcher uses a transparent `.cmd` start flow (no hidden VBS launcher).
-- For enterprise endpoints, add your release folder to allowlist by hash/path/publisher policy.
-- If a false positive occurs, submit the binary hash and sample to your AV vendor.
-- See `SECURITY.md` for a short response checklist.
-
-## Author
-
-Metsuki
+- Keep source and scripts in Git (`src/`, `scripts/`, `installer/`, `webui/`, `assets/`).
+- Do not commit generated outputs (`target/`, `dist/`, runtime logs).

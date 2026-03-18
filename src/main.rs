@@ -19,6 +19,7 @@ struct Config {
     timeout_secs: u64,
     runs: u32,
     out_dir: PathBuf,
+    analysis_mode: AnalysisMode,
     mode: ScanMode,
     fuzz_engine: FuzzEngine,
     security_lab_enabled: bool,
@@ -116,6 +117,22 @@ enum ScanMode {
     Balanced,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum AnalysisMode {
+    Min,
+    Pentest,
+}
+
+impl AnalysisMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            AnalysisMode::Min => "MIN",
+            AnalysisMode::Pentest => "PENTEST",
+        }
+    }
+}
+
 impl ScanMode {
     fn as_str(self) -> &'static str {
         match self {
@@ -186,8 +203,10 @@ struct RuntimeTraceEvent {
 
 #[derive(Debug, Clone, Serialize)]
 struct Report {
+    schema_version: String,
     target: String,
     generated_unix: u64,
+    analysis_mode: AnalysisMode,
     mode: ScanMode,
     score: u32,
     final_status: Severity,
@@ -202,7 +221,7 @@ fn main() {
         Err(msg) => {
             eprintln!("{}", msg);
             eprintln!(
-                "Usage: exe_tester <path_to_target> [--timeout <sec>] [--runs <count>] [--out-dir <path>] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
+                "Usage: exe_tester <path_to_target> [--timeout <sec>] [--runs <count>] [--out-dir <path>] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
             );
             std::process::exit(64);
         }
@@ -222,7 +241,8 @@ fn run(config: Config) {
     println!("Target: {}", config.exe_path.display());
     println!("TargetType: {}", target_kind.as_str());
     println!(
-        "Mode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
+        "AnalysisMode: {} | VerdictMode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
+        config.analysis_mode.as_str(),
         config.mode.as_str(),
         config.timeout_secs,
         config.runs,
@@ -306,7 +326,8 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
     let mut timeout_secs: u64 = 4;
     let mut runs: u32 = 6;
     let mut out_dir = PathBuf::from("logs");
-    let mut mode = ScanMode::Strict;
+    let mut analysis_mode = AnalysisMode::Min;
+    let mut mode = ScanMode::Balanced;
     let mut fuzz_engine = FuzzEngine::Native;
     let mut security_lab_enabled = true;
     let mut lab_profile = SecurityLabProfile::Standard;
@@ -353,6 +374,35 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
             }
             "--balanced" => {
                 mode = ScanMode::Balanced;
+            }
+            "--mode-min" => {
+                analysis_mode = AnalysisMode::Min;
+                mode = ScanMode::Balanced;
+                lab_profile = SecurityLabProfile::Standard;
+            }
+            "--mode-pentest" => {
+                analysis_mode = AnalysisMode::Pentest;
+                mode = ScanMode::Strict;
+                lab_profile = SecurityLabProfile::Aggressive;
+            }
+            "--mode" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err("Missing value for --mode".to_string());
+                }
+                match args[i].to_ascii_lowercase().as_str() {
+                    "min" => {
+                        analysis_mode = AnalysisMode::Min;
+                        mode = ScanMode::Balanced;
+                        lab_profile = SecurityLabProfile::Standard;
+                    }
+                    "pentest" => {
+                        analysis_mode = AnalysisMode::Pentest;
+                        mode = ScanMode::Strict;
+                        lab_profile = SecurityLabProfile::Aggressive;
+                    }
+                    _ => return Err("--mode must be 'min' or 'pentest'".to_string()),
+                }
             }
             "--fuzz-engine" => {
                 i += 1;
@@ -404,11 +454,16 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
         i += 1;
     }
 
+    if analysis_mode == AnalysisMode::Pentest && !confirm_extended_tests {
+        return Err("PENTEST mode requires explicit --confirm-extended-tests opt-in".to_string());
+    }
+
     Ok(Config {
         exe_path,
         timeout_secs,
         runs,
         out_dir,
+        analysis_mode,
         mode,
         fuzz_engine,
         security_lab_enabled,
@@ -1218,7 +1273,9 @@ fn write_report_files(
 
     let mut full = String::new();
     full.push_str("=== EXE Analyzer v2 (Rust) ===\n");
+    full.push_str("Schema: 2.0\n");
     full.push_str(&format!("Target: {}\n", config.exe_path.display()));
+    full.push_str(&format!("AnalysisMode: {}\n", config.analysis_mode.as_str()));
     full.push_str(&format!("Mode: {}\n", config.mode.as_str()));
     full.push_str(&format!("SecurityLab profile: {}\n", telemetry.profile));
     full.push_str(&format!("Score: {}\n", score));
@@ -1272,7 +1329,9 @@ fn write_report_files(
 
     let mut issues = String::new();
     issues.push_str("=== EXE Analyzer v2 Issues ===\n");
+    issues.push_str("Schema: 2.0\n");
     issues.push_str(&format!("Target: {}\n", config.exe_path.display()));
+    issues.push_str(&format!("AnalysisMode: {}\n", config.analysis_mode.as_str()));
     issues.push_str(&format!("Mode: {}\n", config.mode.as_str()));
     issues.push_str(&format!("Score: {} | Final: {}\n\n", score, final_status.as_str()));
     for f in findings {
@@ -1293,8 +1352,10 @@ fn write_report_files(
         .with_context(|| format!("Write issues log failed: {}", issues_log.display()))?;
 
     let report = Report {
+        schema_version: "2.0".to_string(),
         target: config.exe_path.display().to_string(),
         generated_unix: current_unix(),
+        analysis_mode: config.analysis_mode,
         mode: config.mode,
         score,
         final_status,

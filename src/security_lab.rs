@@ -624,6 +624,7 @@ mod tests {
             timeout_secs: 3,
             runs: 3,
             out_dir: PathBuf::from("logs"),
+            analysis_mode: AnalysisMode::Min,
             mode: ScanMode::Strict,
             fuzz_engine: FuzzEngine::Native,
             security_lab_enabled: true,

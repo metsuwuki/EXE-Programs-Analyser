@@ -1,0 +1,3734 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="DARK" data-accent="AMETHYST">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metsuki Workbench</title>
+  <style>
+    :root {
+      --bg: #181818;
+      --bg-elev: #1d1d1d;
+      --bg-elev-2: #222222;
+      --bg-ink: #151515;
+      --line: #303030;
+      --line-soft: #2a2a2a;
+      --text: #e7e7e7;
+      --muted: #a3a3a3;
+      --accent: #ff6b2e;
+      --accent-2: #ff9d2e;
+      --accent-soft: #ff8a57;
+      --accent-glow: rgba(255, 107, 46, 0.34);
+      --ok: #37d08f;
+      --warn: #ffba54;
+      --fail: #ff6f84;
+      --shadow: 0 22px 56px rgba(0, 0, 0, 0.42);
+      --glow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 16px 36px rgba(7, 12, 19, 0.55);
+      --mono: "Cascadia Code", "Iosevka", "JetBrains Mono", "Consolas", monospace;
+      --sans: "Bahnschrift", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --radius: 12px;
+      --sidebar-w: 176px;
+      --status-h: 28px;
+      --top-h: 48px;
+      --accent-shift: 200ms;
+      --anim-fast: 140ms;
+      --anim-med: 260ms;
+      --dur-micro: 120ms;
+      --dur-soft: 180ms;
+      --dur-flow: 220ms;
+      --ease-soft: cubic-bezier(0.22, 0.8, 0.36, 1);
+      --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    html[data-accent="LAVA"] {
+      --accent: #ff6b2e;
+      --accent-2: #ff9d2e;
+      --accent-soft: #ff8a57;
+      --accent-glow: rgba(255, 107, 46, 0.34);
+    }
+
+    html[data-accent="AMETHYST"] {
+      --accent: #8f4dff;
+      --accent-2: #c96eff;
+      --accent-soft: #b080ff;
+      --accent-glow: rgba(143, 77, 255, 0.34);
+    }
+
+    html[data-accent="LIME"] {
+      --accent: #9be23a;
+      --accent-2: #58d65c;
+      --accent-soft: #b8f26f;
+      --accent-glow: rgba(155, 226, 58, 0.34);
+    }
+
+    html[data-accent="CYAN"] {
+      --accent: #35c7f2;
+      --accent-2: #6be3ff;
+      --accent-soft: #7fdfff;
+      --accent-glow: rgba(53, 199, 242, 0.34);
+    }
+
+    html[data-accent="CRIMSON"] {
+      --accent: #e25a71;
+      --accent-2: #ff7d92;
+      --accent-soft: #ff93a2;
+      --accent-glow: rgba(226, 90, 113, 0.34);
+    }
+
+    html[data-accent="GOLD"] {
+      --accent: #d6a83d;
+      --accent-2: #f0cb73;
+      --accent-soft: #f3d48e;
+      --accent-glow: rgba(214, 168, 61, 0.34);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      color: var(--text);
+      font-family: var(--sans);
+      background:
+        radial-gradient(940px 420px at 14% -18%, color-mix(in oklab, var(--accent) 26%, transparent) 0%, transparent 72%),
+        radial-gradient(760px 360px at 100% 0%, color-mix(in oklab, var(--accent-2) 22%, transparent) 0%, transparent 72%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-elev) 100%);
+      background-position: 14% -18%, 100% 0%, 0 0;
+      animation: bgWave 34s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgWave {
+      0% { background-position: 14% -18%, 100% 0%, 0 0; }
+      50% { background-position: 10% -10%, 88% 8%, 0 0; }
+      100% { background-position: 18% -24%, 96% -6%, 0 0; }
+    }
+
+    @keyframes surfaceWave {
+      0% { background-position: 0% 0%, 0% 50%; }
+      50% { background-position: 0% 0%, 100% 40%; }
+      100% { background-position: 0% 0%, 0% 60%; }
+    }
+
+    html::after {
+      content: "";
+      position: fixed;
+      inset: -18%;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      background:
+        radial-gradient(42% 36% at 24% 8%, color-mix(in oklab, var(--accent) 38%, transparent) 0%, transparent 72%),
+        radial-gradient(34% 34% at 84% 12%, color-mix(in oklab, var(--accent-2) 35%, transparent) 0%, transparent 74%);
+      transition: opacity var(--accent-shift) ease;
+    }
+
+    html.accent-morph::after {
+      opacity: 0.38;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(circle at center, black 25%, transparent 88%);
+      opacity: 0.5;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      grid-template-rows: var(--top-h) 1fr var(--status-h);
+      animation: appIn 420ms var(--ease-smooth);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity var(--dur-flow) var(--ease-soft), transform var(--dur-flow) var(--ease-soft);
+      position: relative;
+      z-index: 1;
+    }
+
+    .app.ready {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(520px 240px at 30% 8%, color-mix(in oklab, var(--accent) 34%, transparent), transparent 72%),
+        radial-gradient(620px 280px at 72% 8%, color-mix(in oklab, var(--accent-2) 30%, transparent), transparent 72%),
+        linear-gradient(180deg, #181818, #1d1d1d 55%, #222222);
+      transition: opacity var(--dur-flow) var(--ease-soft), visibility var(--dur-flow) var(--ease-soft);
+    }
+
+    .splash.hide {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-core {
+      width: min(480px, 92vw);
+      padding: 24px;
+      border-radius: 16px;
+      border: 1px solid #3b3b3b;
+      background: rgba(28, 28, 28, 0.86);
+      box-shadow: 0 20px 42px rgba(0, 0, 0, 0.45);
+      animation: appIn 420ms var(--ease-smooth);
+    }
+
+    .splash-logo {
+      width: 116px;
+      height: 116px;
+      margin: 0 auto 9px;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 10px 22px var(--accent-glow));
+      transition: filter var(--accent-shift) ease;
+      animation: logoPulse 3.4s ease-in-out infinite;
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { filter: drop-shadow(0 10px 22px var(--accent-glow)); }
+      50% { filter: drop-shadow(0 14px 30px color-mix(in oklab, var(--accent) 56%, transparent)); }
+    }
+
+    .splash-title {
+      margin: 0;
+      color: #f1f1f1;
+      font-size: 21px;
+      letter-spacing: 0.03em;
+      text-align: center;
+    }
+
+    .splash-sub {
+      margin: 8px 0 12px;
+      color: #bbbbbb;
+      font: 12px var(--mono);
+      text-align: center;
+    }
+
+    .splash-progress {
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid #3a3a3a;
+      background: #171717;
+      overflow: hidden;
+    }
+
+    .splash-progress i {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-soft));
+      animation: splashLoad 1200ms ease forwards;
+      transition: background var(--accent-shift) ease;
+    }
+
+    @keyframes splashLoad {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes appIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .sidebar {
+      grid-row: 1 / span 3;
+      border-right: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #202020 0%, #1a1a1a 100%),
+        radial-gradient(130% 90% at -20% 0%, color-mix(in oklab, var(--accent) 22%, transparent) 0%, transparent 70%);
+      background-size: 100% 100%, 210% 210%;
+      animation: surfaceWave 32s ease-in-out infinite;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 9px 8px;
+      gap: 8px;
+      position: relative;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 40px;
+      border-radius: 0 2px 2px 0;
+      background: linear-gradient(180deg, var(--accent), var(--accent-soft));
+      transform: translateY(var(--nav-y, 9px));
+      transition: transform var(--dur-flow) var(--ease-soft), background var(--dur-soft) var(--ease-soft);
+    }
+
+    .nav-btn {
+      width: 100%;
+      height: 40px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--muted);
+      background: transparent;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px;
+      transition: background var(--dur-soft) var(--ease-soft), color var(--dur-soft) var(--ease-soft), transform var(--dur-micro) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft);
+      overflow: hidden;
+    }
+
+    .support-link {
+      text-decoration: none;
+    }
+
+    .support-btn {
+      margin-top: auto;
+      color: #fff8ef;
+      background: linear-gradient(145deg, var(--accent), var(--accent-2));
+      border: 1px solid color-mix(in oklab, var(--accent) 70%, #3f3f3f);
+      box-shadow: 0 10px 22px var(--accent-glow);
+      animation: accentPulse 2.9s ease-in-out infinite;
+    }
+
+    .support-btn .nav-ico {
+      border-color: color-mix(in oklab, var(--accent) 58%, #e6a586);
+      color: #fff5ea;
+      background: color-mix(in oklab, #2a2a2a 55%, var(--accent) 45%);
+    }
+
+    .support-btn:hover {
+      background: linear-gradient(145deg, color-mix(in oklab, var(--accent) 84%, #fff), color-mix(in oklab, var(--accent-2) 84%, #fff));
+      box-shadow: 0 12px 30px color-mix(in oklab, var(--accent) 48%, transparent);
+      color: #ffffff;
+    }
+
+    .nav-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.1;
+    }
+
+    .nav-ico {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      border: 1px solid #3a3a3a;
+      display: grid;
+      place-items: center;
+      color: #dedede;
+      background: linear-gradient(180deg, #272727, #222222);
+      flex-shrink: 0;
+      transition: border-color var(--accent-shift) ease, color var(--accent-shift) ease, box-shadow var(--accent-shift) ease;
+    }
+
+    .nav-btn:hover {
+      color: #f1f1f1;
+      background: #262626;
+      transform: translateY(-1px);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, #3b3b3b);
+    }
+
+    .nav-btn:hover .nav-ico {
+      border-color: color-mix(in oklab, var(--accent) 60%, #414141);
+      color: #ffffff;
+    }
+
+    .nav-btn.active {
+      color: #ffffff;
+      background: linear-gradient(160deg, #2c2c2c, #242424);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 58%, #404040);
+    }
+
+    .topbar {
+      grid-column: 2;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(34, 34, 34, 0.9) 0%, rgba(30, 30, 30, 0.9) 100%),
+        radial-gradient(120% 100% at 10% -40%, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 72%);
+      background-size: 100% 100%, 220% 220%;
+      animation: surfaceWave 30s ease-in-out infinite;
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .top-title-wrap {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .top-title {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f0f0f0;
+      font-family: var(--mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-sub {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--mono);
+    }
+
+    .command-wrap { flex: 1; position: relative; }
+
+    .command {
+      width: 100%;
+      height: 31px;
+      border-radius: 7px;
+      border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 80%, var(--accent) 20%), color-mix(in oklab, var(--bg-ink) 88%, var(--accent) 12%));
+      color: var(--text);
+      outline: none;
+      font-size: 13px;
+      padding: 0 10px 0 34px;
+      transition: border-color var(--anim-fast) ease, box-shadow var(--anim-fast) ease, background var(--anim-fast) ease;
+    }
+
+    .command:focus {
+      border-color: color-mix(in oklab, var(--accent) 65%, #555555);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 26%, transparent);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 72%, var(--accent) 28%), color-mix(in oklab, var(--bg-ink) 80%, var(--accent) 20%));
+    }
+
+    .cmd-mark {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      pointer-events: none;
+    }
+
+    .top-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .meta-pill {
+      border: 1px solid #3a3a3a;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: linear-gradient(180deg, #2a2a2a, #232323);
+      color: #d8d8d8;
+      transition: border-color var(--accent-shift) ease, box-shadow var(--accent-shift) ease;
+    }
+
+    .workspace {
+      grid-column: 2;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 10px;
+      padding: 10px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, #222222 0%, #1c1c1c 100%),
+        radial-gradient(120% 100% at 0% -30%, color-mix(in oklab, var(--accent) 17%, transparent) 0%, transparent 72%);
+      background-size: 100% 100%, 220% 220%;
+      animation: surfaceWave 28s ease-in-out infinite;
+      box-shadow: var(--shadow), var(--glow);
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      min-height: 37px;
+      border-bottom: 1px solid var(--line-soft);
+      background:
+        linear-gradient(180deg, #222222 0%, #1f1f1f 100%),
+        radial-gradient(140% 90% at -10% -80%, color-mix(in oklab, var(--accent-2) 12%, transparent) 0%, transparent 74%);
+      background-size: 100% 100%, 230% 230%;
+      animation: surfaceWave 36s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 11px;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .panel-body {
+      padding: 10px;
+      overflow: auto;
+      height: 100%;
+      scrollbar-color: color-mix(in oklab, var(--accent) 40%, #2f2f2f) #151515;
+    }
+
+    #view-settings {
+      overflow: visible;
+      position: relative;
+      z-index: 20;
+    }
+
+    .statusbar {
+      grid-column: 2;
+      border-top: 1px solid color-mix(in oklab, var(--accent) 34%, var(--line-soft));
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 74%, var(--accent) 26%) 0%, color-mix(in oklab, var(--bg-elev) 84%, var(--accent) 16%) 100%);
+      color: color-mix(in oklab, var(--text) 80%, var(--accent) 20%);
+      font: 12px var(--mono);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 10px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 10px color-mix(in oklab, var(--ok) 70%, transparent);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.35); opacity: 0.45; }
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+
+    .field label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: var(--mono);
+    }
+
+    .field-help {
+      color: color-mix(in oklab, var(--text) 70%, var(--accent) 30%);
+      font: 11px/1.25 var(--mono);
+    }
+
+    .input-with-btn {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .input-with-btn .btn {
+      height: 30px;
+      white-space: nowrap;
+      padding-inline: 11px;
+    }
+
+    .confirm-check {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      align-items: start;
+      column-gap: 11px;
+      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+      border-radius: 10px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 78%, var(--accent) 22%), color-mix(in oklab, var(--bg-ink) 90%, var(--accent) 10%));
+      padding: 9px 11px;
+      min-height: 38px;
+    }
+
+    .confirm-check input[type="checkbox"] {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      margin: 0;
+      border: 1px solid color-mix(in oklab, var(--accent) 52%, #5a5a5a);
+      background: linear-gradient(180deg, #242424, #1f1f1f);
+      cursor: pointer;
+      position: relative;
+      transition: border-color var(--anim-fast) ease, background var(--anim-fast) ease, box-shadow var(--anim-fast) ease;
+    }
+
+    .confirm-check input[type="checkbox"]:hover {
+      border-color: color-mix(in oklab, var(--accent) 68%, #6a6a6a);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 20%, transparent);
+    }
+
+    .confirm-check input[type="checkbox"]:checked {
+      border-color: color-mix(in oklab, var(--accent) 76%, #7a7a7a);
+      background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 78%, #3a3a3a), color-mix(in oklab, var(--accent-2) 72%, #2f2f2f));
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .confirm-check input[type="checkbox"]:checked::after {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 10px;
+      border-right: 2px solid #ffffff;
+      border-bottom: 2px solid #ffffff;
+      transform: rotate(42deg);
+    }
+
+    .confirm-check-text {
+      color: color-mix(in oklab, var(--text) 88%, #c8c8c8);
+      font: 600 11px/1.45 var(--mono);
+      letter-spacing: 0.03em;
+      text-transform: none;
+      user-select: none;
+    }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 82%, var(--accent) 18%), color-mix(in oklab, var(--bg-ink) 88%, var(--accent) 12%));
+      color: var(--text);
+      outline: none;
+      padding: 0 8px;
+      font-size: 13px;
+      transition: border-color var(--anim-fast) ease, box-shadow var(--anim-fast) ease;
+    }
+
+    input[type="text"]:focus, input[type="number"]:focus, select:focus {
+      border-color: color-mix(in oklab, var(--accent) 70%, #5f5f5f);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .select-shell {
+      position: relative;
+      width: 100%;
+      height: 30px;
+    }
+
+    select.ux-native {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    .select-trigger {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      border-radius: 8px;
+      border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 82%, var(--accent) 18%), color-mix(in oklab, var(--bg-ink) 88%, var(--accent) 12%));
+      color: var(--text);
+      font-size: 13px;
+      padding: 0 30px 0 8px;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--accent) 12%, transparent);
+      transition: border-color var(--anim-fast) ease, box-shadow var(--anim-fast) ease, background var(--anim-fast) ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .select-trigger:hover {
+      border-color: color-mix(in oklab, var(--accent) 62%, #5f5f5f);
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent) inset;
+    }
+
+    .select-trigger:focus-visible {
+      border-color: color-mix(in oklab, var(--accent) 70%, #5f5f5f);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .select-trigger::after {
+      content: "";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid color-mix(in oklab, var(--accent) 72%, #c7c7c7);
+      border-bottom: 2px solid color-mix(in oklab, var(--accent) 72%, #c7c7c7);
+      transform: translateY(-60%) rotate(45deg);
+      opacity: 0.85;
+      transition: transform var(--anim-fast) ease;
+      pointer-events: none;
+    }
+
+    .select-menu {
+      display: none !important;
+    }
+
+    .select-option {
+      display: none !important;
+    }
+
+    .picker-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 12000;
+      display: grid;
+      place-items: center;
+      background: color-mix(in oklab, #000 70%, transparent);
+      backdrop-filter: blur(5px);
+      animation: fadeIn 180ms ease;
+    }
+
+    .picker-dialog {
+      width: min(680px, 92vw);
+      max-height: min(520px, 86vh);
+      border-radius: 14px;
+      border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--line));
+      background:
+        linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 88%, var(--accent) 12%), color-mix(in oklab, var(--bg-elev) 95%, #141414)),
+        radial-gradient(140% 120% at -20% -20%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 76%);
+      box-shadow: 0 26px 46px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in oklab, var(--accent) 16%, transparent) inset;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      animation: appIn 220ms var(--ease-smooth);
+    }
+
+    .picker-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line-soft));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .picker-title {
+      font: 600 13px/1.2 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ececec;
+    }
+
+    .picker-sub {
+      font: 12px/1.2 var(--mono);
+      color: var(--muted);
+    }
+
+    .picker-body {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      min-height: 220px;
+    }
+
+    .picker-list {
+      padding: 10px;
+      overflow: auto;
+      border-right: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line-soft));
+    }
+
+    .picker-item {
+      width: 100%;
+      height: 36px;
+      border: 0;
+      border-radius: 9px;
+      padding: 0 10px;
+      margin-bottom: 6px;
+      background: transparent;
+      color: #d8d8d8;
+      text-align: left;
+      font: 13px/1.1 var(--sans);
+      cursor: pointer;
+      transition: background var(--dur-micro) var(--ease-soft), color var(--dur-micro) var(--ease-soft), box-shadow var(--dur-micro) var(--ease-soft);
+    }
+
+    .picker-item:hover {
+      background: color-mix(in oklab, var(--bg-elev-2) 70%, var(--accent) 30%);
+      color: #f6f6f6;
+    }
+
+    .picker-item.is-active {
+      background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 64%, #2a2a2a), color-mix(in oklab, var(--accent-2) 58%, #252525));
+      color: #ffffff;
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 66%, #4f4f4f);
+    }
+
+    .picker-side {
+      padding: 12px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .picker-k {
+      font: 600 11px/1.2 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .picker-v {
+      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in oklab, var(--bg-elev-2) 76%, var(--accent) 24%);
+      font: 12px/1.2 var(--mono);
+      color: #ececec;
+      word-break: break-word;
+    }
+
+    .picker-foot {
+      padding: 10px 12px;
+      border-top: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line-soft));
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      background: color-mix(in oklab, var(--bg-ink) 88%, var(--accent) 12%);
+    }
+
+    @media (max-width: 760px) {
+      .picker-body {
+        grid-template-columns: 1fr;
+      }
+
+      .picker-list {
+        border-right: 0;
+        border-bottom: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line-soft));
+        max-height: 38vh;
+      }
+    }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .btn {
+      height: 30px;
+      border-radius: 9px;
+      border: 1px solid #35506e;
+      background: linear-gradient(180deg, #1b2d43, #162638);
+      color: #dde9fb;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0 12px;
+      cursor: pointer;
+      transition: transform var(--dur-micro) var(--ease-soft), background var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: linear-gradient(180deg, #243a55, #1c2f45);
+      box-shadow: 0 10px 18px rgba(6, 10, 16, 0.35);
+    }
+    .btn:active { transform: translateY(0); }
+
+    .btn.primary {
+      background: linear-gradient(145deg, #ff5f2e, #ff9440);
+      border-color: #e8773f;
+      color: #fff2e6;
+      box-shadow: 0 10px 22px rgba(255, 110, 48, 0.35);
+    }
+
+    .btn.warn {
+      background: linear-gradient(155deg, #5d42c8, #8055db);
+      border-color: #7350d2;
+      color: #efe4ff;
+      box-shadow: 0 10px 22px rgba(115, 80, 210, 0.32);
+    }
+
+    .ten-hero {
+      position: relative;
+      min-height: 210px;
+      border-radius: 14px;
+      border: 1px solid color-mix(in oklab, var(--accent) 44%, var(--line));
+      background:
+        radial-gradient(880px 240px at 16% -30%, color-mix(in oklab, var(--accent) 46%, transparent) 0%, transparent 66%),
+        radial-gradient(760px 220px at 96% -22%, color-mix(in oklab, var(--accent-2) 38%, transparent) 0%, transparent 68%),
+        linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 86%, var(--accent) 14%), color-mix(in oklab, var(--bg-elev) 94%, var(--accent) 6%));
+      box-shadow: 0 24px 52px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+      margin-bottom: 10px;
+      isolation: isolate;
+      transition: border-color var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft), transform var(--dur-soft) var(--ease-soft);
+      animation: heroAuraPulse 6.5s ease-in-out infinite;
+    }
+
+    .ten-hero:hover {
+      border-color: color-mix(in oklab, var(--accent) 62%, var(--line));
+      box-shadow: 0 28px 62px color-mix(in oklab, var(--accent) 28%, rgba(0, 0, 0, 0.36)), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .ten-hero::before,
+    .ten-hero::after {
+      content: "";
+      position: absolute;
+      inset: -22% -14%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .ten-hero::before {
+      background:
+        conic-gradient(from 120deg at 20% 30%, color-mix(in oklab, var(--accent) 34%, transparent), transparent 38%, color-mix(in oklab, var(--accent-2) 28%, transparent), transparent 70%);
+      filter: blur(20px);
+      opacity: 0.55;
+      animation: heroFlow 8.2s linear infinite;
+    }
+
+    .ten-hero::after {
+      background:
+        repeating-linear-gradient(95deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 26px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 24px);
+      opacity: 0.32;
+      transform: translateY(0);
+      animation: heroGridFloat 7.8s ease-in-out infinite;
+    }
+
+    @keyframes heroFlow {
+      from { transform: rotate(0deg) scale(1); }
+      to { transform: rotate(360deg) scale(1.02); }
+    }
+
+    @keyframes heroGridFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(6px); }
+    }
+
+    @keyframes heroAuraPulse {
+      0%, 100% { box-shadow: 0 24px 52px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+      50% { box-shadow: 0 26px 58px color-mix(in oklab, var(--accent) 30%, rgba(0, 0, 0, 0.36)), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+    }
+
+    .hero-particles {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+      align-items: center;
+      padding: 16px;
+      min-height: 210px;
+    }
+
+    .hero-content::before {
+      content: "";
+      position: absolute;
+      inset: -12% -10%;
+      pointer-events: none;
+      z-index: 0;
+      background: linear-gradient(112deg, transparent 20%, rgba(255, 255, 255, 0.08) 44%, transparent 66%);
+      transform: translateX(-120%);
+      animation: heroSweep 6.2s ease-in-out infinite;
+    }
+
+    .hero-content > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes heroSweep {
+      0%, 62% { transform: translateX(-120%); opacity: 0; }
+      72% { opacity: 0.52; }
+      100% { transform: translateX(120%); opacity: 0; }
+    }
+
+    .hero-label {
+      font: 11px var(--mono);
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: color-mix(in oklab, var(--text) 72%, var(--accent) 28%);
+      margin-bottom: 6px;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-weight: 760;
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+      font-size: clamp(23px, 3.2vw, 34px);
+      color: #f5f5f5;
+      text-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
+    }
+
+    .hero-title-accent {
+      background: linear-gradient(120deg, color-mix(in oklab, var(--accent) 72%, #f5f5f5), color-mix(in oklab, var(--accent-2) 82%, #f5f5f5));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      background-size: 160% 160%;
+      animation: accentTextFlow 5s ease-in-out infinite;
+    }
+
+    @keyframes accentTextFlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .hero-sub {
+      margin-top: 8px;
+      margin-bottom: 0;
+      color: color-mix(in oklab, var(--text) 78%, var(--accent) 22%);
+      font-size: 13px;
+      max-width: 62ch;
+    }
+
+    .hero-tags {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .hero-tag {
+      border: 1px solid color-mix(in oklab, var(--accent) 48%, var(--line-soft));
+      background: color-mix(in oklab, var(--bg-elev-2) 78%, var(--accent) 22%);
+      color: color-mix(in oklab, var(--text) 82%, var(--accent) 18%);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font: 11px var(--mono);
+      letter-spacing: 0.03em;
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft), border-color var(--dur-soft) var(--ease-soft), color var(--dur-soft) var(--ease-soft);
+      animation: heroChipGlow 4.8s ease-in-out infinite;
+    }
+
+    .hero-tag::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(112deg, transparent 18%, rgba(255, 255, 255, 0.24) 48%, transparent 82%);
+      transform: translateX(-130%);
+      animation: heroChipShine 5.4s ease-in-out infinite;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .hero-tag:hover {
+      color: #ffffff;
+      border-color: color-mix(in oklab, var(--accent) 72%, var(--line-soft));
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 52%, transparent), 0 10px 22px color-mix(in oklab, var(--accent) 30%, transparent);
+      transform: translateY(-2px);
+    }
+
+    @keyframes heroChipGlow {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 0%, transparent); }
+      50% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 42%, transparent); }
+    }
+
+    @keyframes heroChipShine {
+      0%, 62% { transform: translateX(-130%); opacity: 0; }
+      72% { opacity: 0.6; }
+      100% { transform: translateX(130%); opacity: 0; }
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .hero-stat {
+      border-radius: 10px;
+      border: 1px solid color-mix(in oklab, var(--accent) 36%, var(--line-soft));
+      background: linear-gradient(160deg, color-mix(in oklab, var(--bg-elev-2) 75%, var(--accent) 25%), color-mix(in oklab, var(--bg-elev) 90%, var(--accent) 10%));
+      min-height: 62px;
+      padding: 8px;
+      backdrop-filter: blur(1.6px);
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--dur-soft) var(--ease-soft), border-color var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft);
+      animation: heroStatIn 380ms var(--ease-smooth) both, heroStatGlow 3.4s ease-in-out infinite;
+    }
+
+    .hero-stat::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.2) 48%, transparent 82%);
+      transform: translateX(-125%);
+      animation: heroStatSheen 6.4s ease-in-out infinite;
+      pointer-events: none;
+      opacity: 0.44;
+    }
+
+    .hero-stat:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in oklab, var(--accent) 66%, var(--line-soft));
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 52%, transparent), 0 14px 24px color-mix(in oklab, var(--accent) 30%, transparent);
+    }
+
+    .hero-stat:nth-child(2) { animation-delay: 70ms; }
+    .hero-stat:nth-child(3) { animation-delay: 140ms; }
+    .hero-stat:nth-child(4) { animation-delay: 210ms; }
+
+    @keyframes heroStatIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes heroStatGlow {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 0%, transparent); }
+      50% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 52%, transparent), 0 10px 18px color-mix(in oklab, var(--accent) 24%, transparent); }
+    }
+
+    @keyframes heroStatSheen {
+      0%, 64% { transform: translateX(-125%); opacity: 0; }
+      74% { opacity: 0.55; }
+      100% { transform: translateX(125%); opacity: 0; }
+    }
+
+    .hero-stat-k {
+      font: 700 22px var(--mono);
+      color: #f4f4f4;
+      line-height: 1;
+      margin-bottom: 6px;
+      text-shadow: 0 6px 18px rgba(0, 0, 0, 0.38);
+    }
+
+    .hero-stat-l {
+      font: 11px var(--mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+
+    .kpi {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 86%, var(--accent) 14%), color-mix(in oklab, var(--bg-elev) 92%, var(--accent) 8%));
+      min-height: 62px;
+      padding: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--dur-soft) var(--ease-soft), border-color var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft);
+      animation: heroElementGlow 3.8s ease-in-out infinite;
+    }
+
+    .kpi::before {
+      content: "";
+      position: absolute;
+      left: -120%;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      transition: left 850ms ease;
+      z-index: 2;
+    }
+
+    .kpi::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.16) 46%, transparent 82%);
+      transform: translateX(-125%);
+      animation: heroElementShine 7.2s ease-in-out infinite;
+      pointer-events: none;
+      opacity: 0.4;
+      z-index: 1;
+    }
+
+    .kpi.flash::before { left: 120%; }
+
+    .kpi:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in oklab, var(--accent) 62%, var(--line-soft));
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 48%, transparent),
+                  0 12px 26px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
+    .kpi:nth-child(1) { box-shadow: inset 0 2px 0 color-mix(in oklab, var(--accent) 68%, transparent); }
+    .kpi:nth-child(2) { box-shadow: inset 0 2px 0 rgba(88, 214, 186, 0.55); }
+    .kpi:nth-child(3) { box-shadow: inset 0 2px 0 rgba(255, 194, 98, 0.55); }
+    .kpi:nth-child(4) { box-shadow: inset 0 2px 0 rgba(255, 107, 135, 0.55); }
+    .kpi:nth-child(5), .kpi:nth-child(6) { box-shadow: inset 0 2px 0 color-mix(in oklab, var(--accent-2) 62%, transparent); }
+
+    .kpi .label {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      font-family: var(--mono);
+      position: relative;
+      z-index: 3;
+    }
+
+    .kpi .value {
+      font-size: 24px;
+      margin-top: 3px;
+      font-weight: 700;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+      position: relative;
+      z-index: 3;
+    }
+
+    /* Balanced KPI color scheme */
+    #kScore { color: #4fd89f; text-shadow: 0 2px 12px rgba(79, 216, 159, 0.28); }
+    #kWarn { color: #f0c56b; text-shadow: 0 2px 12px rgba(240, 197, 107, 0.28); }
+    #kFail { color: #f28797; text-shadow: 0 2px 12px rgba(242, 135, 151, 0.28); }
+    #kStatus { color: color-mix(in oklab, var(--accent) 76%, #e7e7e7); }
+
+    .view-enter { animation: viewIn 260ms var(--ease-smooth); }
+    .view-enter > * {
+      opacity: 0;
+      transform: translateY(7px);
+      animation: viewChildIn 220ms var(--ease-smooth) forwards;
+      animation-delay: calc(var(--i, 0) * 22ms);
+    }
+
+    @keyframes viewIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.995); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes viewChildIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .infogrid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .info-card {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #242424, #1f1f1f);
+      padding: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+      animation: infoIn 320ms var(--ease-smooth) forwards;
+      animation-delay: calc(var(--delay, 0) * 35ms);
+      transition: transform var(--dur-soft) var(--ease-soft), border-color var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .info-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.18) 46%, transparent 82%);
+      transform: translateX(-125%);
+      animation: heroElementShine 6.8s ease-in-out infinite;
+      pointer-events: none;
+      opacity: 0.4;
+      z-index: 1;
+    }
+
+    .info-card:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in oklab, var(--accent) 62%, var(--line-soft));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 
+                  0 0 0 1px color-mix(in oklab, var(--accent) 48%, transparent),
+                  0 12px 26px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
+    .info-card.glow {
+      animation: infoIn 320ms var(--ease-smooth) forwards, heroElementGlow 3.6s ease-in-out infinite;
+      animation-delay: calc(var(--delay, 0) * 35ms), 0;
+    }
+
+    @keyframes infoIn {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ===== HERO ELEMENT BASE CLASS ===== */
+    /* Unified design system for all interactive cards */
+    .hero-element {
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--dur-soft) var(--ease-soft), 
+                  border-color var(--dur-soft) var(--ease-soft), 
+                  box-shadow var(--dur-soft) var(--ease-soft),
+                  background var(--dur-soft) var(--ease-soft);
+    }
+
+    .hero-element::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.18) 46%, transparent 82%);
+      transform: translateX(-125%);
+      animation: heroElementShine 6.8s ease-in-out infinite;
+      pointer-events: none;
+      opacity: 0.4;
+      z-index: 1;
+    }
+
+    .hero-element:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in oklab, var(--accent) 62%, var(--line-soft));
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 48%, transparent), 
+                  0 12px 26px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
+    .hero-element.glow {
+      animation: heroElementGlow 3.6s ease-in-out infinite;
+    }
+
+    @keyframes heroElementShine {
+      0%, 64% { transform: translateX(-125%); opacity: 0; }
+      74% { opacity: 0.5; }
+      100% { transform: translateX(125%); opacity: 0; }
+    }
+
+    @keyframes heroElementGlow {
+      0%, 100% { 
+        box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 0%, transparent);
+      }
+      50% { 
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 48%, transparent), 
+                    0 10px 20px color-mix(in oklab, var(--accent) 26%, transparent);
+      }
+    }
+    /* ===== END HERO ELEMENT ===== */
+
+    .info-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+      gap: 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .info-name {
+      color: var(--muted);
+      font: 11px var(--mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 2;
+    }
+
+    .info-val {
+      color: #f2f2f2;
+      font: 700 14px var(--mono);
+      position: relative;
+      z-index: 2;
+    }
+
+    .info-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #1a1a1a;
+      border: 1px solid #343434;
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+    }
+
+    .info-bar {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      transition: width 460ms var(--ease-smooth), background var(--dur-soft) var(--ease-soft), filter var(--dur-soft) var(--ease-soft);
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      filter: saturate(1.08);
+    }
+
+    .info-bar.pass { background: linear-gradient(90deg, #2fbf7c, #58e39a); }
+    .info-bar.warn { background: linear-gradient(90deg, #d9a44f, #f0c56b); }
+    .info-bar.fail { background: linear-gradient(90deg, #d95f73, #f28797); }
+    .info-bar.stab { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .viz-box {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 82%, var(--accent) 18%), color-mix(in oklab, var(--bg-elev) 90%, var(--accent) 10%));
+      min-height: 170px;
+      padding: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--dur-soft) var(--ease-soft), border-color var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft);
+    }
+
+    .viz-box::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.15) 46%, transparent 82%);
+      transform: translateX(-125%);
+      animation: heroElementShine 7.2s ease-in-out infinite;
+      pointer-events: none;
+      opacity: 0.35;
+      z-index: 1;
+    }
+
+    .viz-box:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in oklab, var(--accent) 62%, var(--line-soft));
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 48%, transparent),
+                  0 12px 26px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
+    .viz-box.glow {
+      animation: heroElementGlow 3.8s ease-in-out infinite;
+    }
+
+    .viz-title {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-family: var(--mono);
+      position: relative;
+      z-index: 2;
+    }
+
+    .viz-canvas {
+      width: 100%;
+      height: 136px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-ink) 84%, var(--accent) 16%), color-mix(in oklab, var(--bg-ink) 92%, #0f0f0f));
+      border-radius: 8px;
+      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line-soft));
+      position: relative;
+      z-index: 2;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 80%, var(--accent) 20%), color-mix(in oklab, var(--bg-elev) 88%, var(--accent) 12%));
+      color: color-mix(in oklab, var(--text) 72%, var(--accent) 28%);
+      border-bottom: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line-soft));
+      text-align: left;
+      padding: 7px;
+      font-weight: 600;
+    }
+
+    .table td {
+      border-bottom: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-soft));
+      padding: 7px;
+      vertical-align: top;
+    }
+
+    .table tbody tr:nth-child(odd) { background: color-mix(in oklab, var(--bg-elev) 84%, var(--accent) 16%); }
+    .table tr { transition: background var(--dur-soft) var(--ease-soft), box-shadow var(--dur-soft) var(--ease-soft); }
+    .table tr:hover {
+      background: color-mix(in oklab, var(--bg-elev-2) 72%, var(--accent) 28%);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 44%, transparent);
+    }
+
+    .mono { font-family: var(--mono); }
+    .muted { color: var(--muted); }
+    .hidden { display: none !important; }
+
+    .sev-pass { color: var(--ok); }
+    .sev-warn { color: var(--warn); }
+    .sev-fail { color: var(--fail); }
+
+    .progress {
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      border: 1px solid #3a3a3a;
+      background: #1b1b1b;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 420ms var(--ease-smooth), background var(--accent-shift) ease, box-shadow var(--accent-shift) ease;
+    }
+
+    .btn {
+      border: 1px solid #3a3a3a;
+      background: linear-gradient(180deg, #2a2a2a, #232323);
+      color: #e6e6e6;
+    }
+
+    .btn:hover {
+      background: linear-gradient(180deg, #333333, #2a2a2a);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, 0.35), 0 0 0 1px color-mix(in oklab, var(--accent) 38%, #3b3b3b);
+    }
+
+    .btn.primary {
+      background: linear-gradient(145deg, var(--accent), var(--accent-2));
+      border-color: color-mix(in oklab, var(--accent) 70%, #3f3f3f);
+      color: #fff8ef;
+      box-shadow: 0 10px 22px var(--accent-glow);
+      animation: accentPulse 2.9s ease-in-out infinite;
+    }
+
+    .btn.warn {
+      background: linear-gradient(155deg, color-mix(in oklab, var(--accent) 62%, #2a2a2a), color-mix(in oklab, var(--accent-2) 58%, #242424));
+      border-color: color-mix(in oklab, var(--accent) 65%, #3f3f3f);
+      color: #f5f5f5;
+      box-shadow: 0 10px 22px color-mix(in oklab, var(--accent) 35%, transparent);
+    }
+
+    @keyframes accentPulse {
+      0%, 100% { box-shadow: 0 10px 22px var(--accent-glow); }
+      50% { box-shadow: 0 12px 30px color-mix(in oklab, var(--accent) 48%, transparent); }
+    }
+
+    .log-box {
+      border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--line));
+      border-radius: 10px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-ink) 86%, var(--accent) 14%), color-mix(in oklab, var(--bg-ink) 95%, #080808));
+      min-height: 160px;
+      max-height: 320px;
+      overflow: auto;
+      padding: 8px;
+      font: 12px/1.35 var(--mono);
+      white-space: pre-wrap;
+    }
+
+    .kpi,
+    .info-card,
+    .viz-box,
+    .log-box,
+    .details .panel-body {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .kpi > *,
+    .info-card > *,
+    .viz-box > *,
+    .log-box > *,
+    .details .panel-body > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .kpi::after,
+    .info-card::after,
+    .viz-box::after,
+    .log-box::after,
+    .details .panel-body::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(140% 120% at -10% -50%, color-mix(in oklab, var(--accent) 24%, transparent) 0%, transparent 74%),
+        radial-gradient(120% 100% at 110% -40%, color-mix(in oklab, var(--accent-2) 22%, transparent) 0%, transparent 72%),
+        repeating-linear-gradient(95deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 30px);
+      background-size: 170% 170%, 170% 170%, 140% 140%;
+      background-position: 0% 0%, 100% 0%, 0% 0%;
+      opacity: 0.42;
+      animation: cardAuraShift 9.2s ease-in-out infinite;
+    }
+
+    @keyframes cardAuraShift {
+      0%, 100% { background-position: 0% 0%, 100% 0%, 0% 0%; opacity: 0.4; }
+      50% { background-position: 20% 8%, 84% 12%, 18% 10%; opacity: 0.58; }
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--accent) 42%, var(--line));
+      font-size: 11px;
+      color: color-mix(in oklab, var(--text) 78%, var(--accent) 22%);
+      margin-right: 6px;
+      margin-bottom: 4px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 78%, var(--accent) 22%), color-mix(in oklab, var(--bg-elev) 88%, var(--accent) 12%));
+    }
+
+    .detail-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 5px 0;
+      border-bottom: 1px dashed color-mix(in oklab, var(--accent) 26%, var(--line-soft));
+      font-size: 12px;
+    }
+
+    .detail-line:last-child { border-bottom: none; }
+
+    .float-note {
+      position: absolute;
+      right: 18px;
+      top: 58px;
+      border: 1px solid color-mix(in oklab, var(--accent) 58%, var(--line));
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: color-mix(in oklab, var(--text) 72%, var(--accent) 28%);
+      background: color-mix(in oklab, var(--bg-elev-2) 76%, var(--accent) 24%);
+      animation: noteIn 350ms ease;
+      pointer-events: none;
+    }
+
+    .apply-pop {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 1200;
+      min-width: 320px;
+      max-width: 420px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in oklab, var(--accent) 52%, var(--line));
+      background: linear-gradient(180deg, color-mix(in oklab, var(--bg-elev-2) 82%, var(--accent) 18%), color-mix(in oklab, var(--bg-elev) 92%, var(--accent) 8%));
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.44), 0 0 0 1px color-mix(in oklab, var(--accent) 15%, transparent) inset;
+      padding: 10px;
+      animation: applyPopIn 180ms var(--ease-smooth);
+    }
+
+    .apply-pop-title {
+      font: 12px var(--mono);
+      color: color-mix(in oklab, var(--text) 74%, var(--accent) 26%);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 5px;
+    }
+
+    .apply-pop-text {
+      font-size: 13px;
+      color: #f1f1f1;
+      margin-bottom: 8px;
+    }
+
+    .apply-pop-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    @keyframes applyPopIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: color-mix(in oklab, var(--bg-ink) 82%, var(--accent) 18%);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 45%, #3a3a3a), color-mix(in oklab, var(--accent-2) 35%, #2c2c2c));
+      border-radius: 10px;
+      border: 1px solid color-mix(in oklab, var(--accent) 55%, #404040);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 60%, #484848), color-mix(in oklab, var(--accent-2) 50%, #363636));
+    }
+
+    @keyframes noteIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1180px) {
+      .workspace { grid-template-columns: 1fr; }
+      .details { display: none; }
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+      .infogrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metrics-grid { grid-template-columns: 1fr; }
+      .hero-content { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto var(--top-h) 1fr var(--status-h);
+      }
+
+      .sidebar {
+        grid-row: 1;
+        grid-column: 1;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 6px;
+        padding: 8px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .sidebar::after { display: none; }
+
+      .nav-btn {
+        min-width: 108px;
+        justify-content: center;
+      }
+
+      .support-btn {
+        margin-top: 0;
+        margin-left: auto;
+      }
+
+      .nav-label {
+        max-width: 74px;
+      }
+
+      .topbar {
+        grid-row: 2;
+        grid-column: 1;
+      }
+
+      .workspace {
+        grid-row: 3;
+        grid-column: 1;
+      }
+
+      .statusbar {
+        grid-row: 4;
+        grid-column: 1;
+      }
+
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .infogrid { grid-template-columns: 1fr; }
+      .row { grid-template-columns: repeat(6, 1fr); }
+      .top-meta { display: none; }
+      .hero-stats { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="splash" class="splash">
+    <div class="splash-core">
+      <img class="splash-logo" src="..\\assets\\logo.png" alt="Metsuki logo" />
+      <h1 class="splash-title">Metsuki Workbench</h1>
+      <div class="splash-sub" id="splashSub">Loading interface, charts and runtime pipeline...</div>
+      <div class="splash-progress"><i></i></div>
+    </div>
+  </div>
+
+  <div class="app" id="appRoot">
+    <aside class="sidebar" id="sidebar">
+      <button class="nav-btn active" data-view="home" title="Home"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 4.6L4.5 10.6V20h5.4v-4.8h4.2V20h5.4v-9.4z"/></svg></span><span id="navHome" class="nav-label">Home</span></button>
+      <button class="nav-btn" data-view="reports" title="Reports"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M6 4h12a2 2 0 0 1 2 2v12.2a1.8 1.8 0 0 1-1.8 1.8H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v1.8h8V8zm0 4v1.8h8V12zm0 4v1.8h5.4V16z"/></svg></span><span id="navReports" class="nav-label">Reports</span></button>
+      <button class="nav-btn" data-view="findings" title="Findings"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10.7 4.2a7.1 7.1 0 1 0 4.5 12.6l3.6 3.6 1.4-1.4-3.6-3.6A7.1 7.1 0 0 0 10.7 4.2zm0 2a5.1 5.1 0 1 1 0 10.2 5.1 5.1 0 0 1 0-10.2z"/></svg></span><span id="navFindings" class="nav-label">Findings</span></button>
+      <button class="nav-btn" data-view="runtime" title="Runtime"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M4 17h16v2H4zm2-4h2v3H6zm5-5h2v8h-2zm5-3h2v11h-2z"/></svg></span><span id="navRuntime" class="nav-label">Runtime</span></button>
+      <button class="nav-btn" data-view="tools" title="Tools"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M14.7 4.3a4 4 0 0 0-4.9 4.9L4 15v5h5l5.8-5.8a4 4 0 0 0 4.9-4.9l-2.5 2.5-2.8-.7-.7-2.8z"/></svg></span><span id="navTools" class="nav-label">Tools</span></button>
+      <button class="nav-btn" data-view="settings" title="Settings"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm8.4 3l-1.7-.6a7 7 0 0 0-.5-1.2l.8-1.6-1.9-1.9-1.6.8c-.4-.2-.8-.3-1.2-.5l-.6-1.7h-2.8l-.6 1.7c-.4.1-.8.3-1.2.5l-1.6-.8-1.9 1.9.8 1.6c-.2.4-.3.8-.5 1.2l-1.7.6v2.8l1.7.6c.1.4.3.8.5 1.2l-.8 1.6 1.9 1.9 1.6-.8c.4.2.8.3 1.2.5l.6 1.7h2.8l.6-1.7c.4-.1.8-.3 1.2-.5l1.6.8 1.9-1.9-.8-1.6c.2-.4.3-.8.5-1.2l1.7-.6z"/></svg></span><span id="navSettings" class="nav-label">Settings</span></button>
+      <a id="btnSupport" class="nav-btn support-link support-btn" href="https://discord.gg/gKunZned" target="_blank" rel="noopener noreferrer" title="Support"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2.8a8.5 8.5 0 0 0-8.5 8.5V14a2 2 0 0 0 2 2h1.7a1.5 1.5 0 0 0 1.5-1.5V11a1.5 1.5 0 0 0-1.5-1.5h-1A6.8 6.8 0 0 1 12 4.5a6.8 6.8 0 0 1 5.8 5h-1A1.5 1.5 0 0 0 15.3 11v3.5A1.5 1.5 0 0 0 16.8 16h1.5A3.2 3.2 0 0 1 15.3 19h-2v2h2A5.2 5.2 0 0 0 20.5 15.8V14a8.5 8.5 0 0 0-8.5-11.2z"/></svg></span><span id="navSupport" class="nav-label">Support</span></a>
+    </aside>
+
+    <header class="topbar">
+      <div class="top-title-wrap">
+        <div id="titleMain" class="top-title">Metsuki Analytics Console</div>
+        <div id="titleSub" class="top-sub">Deep runtime and binary diagnostics workspace</div>
+      </div>
+      <div class="top-meta">
+        <span class="meta-pill" id="modeBadge">MODE: MIN</span>
+        <span class="meta-pill" id="themeBadge">ACCENT: AMETHYST</span>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel">
+        <div class="panel-head">
+          <span id="viewTitle">Home / Quick Start</span>
+          <span id="reportHint" class="mono muted">No report loaded</span>
+        </div>
+
+        <div id="view-home" class="panel-body view">
+          <section class="ten-hero">
+            <canvas id="heroParticles" class="hero-particles" width="1000" height="240"></canvas>
+            <div class="hero-content">
+              <div>
+                <div id="heroLabel" class="hero-label">Executable Analyzer</div>
+                <h2 class="hero-title"><span id="heroTitleLead">Program</span> <span id="heroTitleAccent" class="hero-title-accent">Analysis Workspace</span></h2>
+                <p id="heroSub" class="hero-sub">Run checks, inspect findings, and validate runtime behavior from one dashboard.</p>
+                <div class="hero-tags">
+                  <span id="heroTagFindings" class="hero-tag">Findings</span>
+                  <span id="heroTagRuntime" class="hero-tag">Runtime</span>
+                  <span id="heroTagDiagnostics" class="hero-tag">Diagnostics</span>
+                </div>
+              </div>
+              <div class="hero-stats">
+                <div class="hero-stat"><div class="hero-stat-k">120+</div><div id="heroStatParticles" class="hero-stat-l">Particles</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">60fps</div><div id="heroStatRender" class="hero-stat-l">Target Render</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">3</div><div id="heroStatAccents" class="hero-stat-l">Accent Profiles</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">220ms</div><div id="heroStatTransitions" class="hero-stat-l">Transition Core</div></div>
+              </div>
+            </div>
+          </section>
+
+          <div class="row">
+            <div class="field" style="grid-column: span 8;">
+              <label id="lblTarget">Target EXE</label>
+              <div class="input-with-btn">
+                <input id="targetPath" type="text" placeholder="C:\\path\\to\\app.exe" />
+                <button id="btnPickTarget" class="btn" type="button">Choose File</button>
+              </div>
+              <div id="targetHelp" class="field-help">Supported: .exe, .com, .bat, .cmd, .ps1, .scr</div>
+            </div>
+            <div class="field" style="grid-column: span 2;">
+              <label id="lblMode">Mode</label>
+              <select id="modeSelect">
+                <option value="MIN">MIN</option>
+                <option value="PENTEST">PENTEST</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column: span 2;">
+              <label id="lblRuns">Runs</label>
+              <input id="runsInput" type="number" min="1" value="6" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field" style="grid-column: span 3;">
+              <label id="lblTimeout">Timeout (sec)</label>
+              <input id="timeoutInput" type="number" min="1" value="4" />
+            </div>
+            <div class="field" style="grid-column: span 9;">
+              <label id="lblOutDir">Reports directory</label>
+              <input id="outDirInput" type="text" value="logs" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field" style="grid-column: span 12; align-self: end;">
+              <label class="confirm-check"><input id="confirmPentest" type="checkbox" /><span class="confirm-check-text">I confirm pentest extended tests (opt-in)</span></label>
+            </div>
+          </div>
+
+          <div class="btn-row" style="margin-bottom: 9px;">
+            <button id="btnRun" class="btn primary">Run Analysis</button>
+            <button id="btnStop" class="btn warn">Stop</button>
+            <button id="btnRefreshReports" class="btn">Refresh Reports</button>
+          </div>
+
+          <div class="progress"><div id="runProgress" class="progress-bar"></div></div>
+
+          <div class="kpis" id="kpis">
+            <div class="kpi"><div id="kpiStatusLabel" class="label">STATUS</div><div id="kStatus" class="value">IDLE</div></div>
+            <div class="kpi"><div id="kpiScoreLabel" class="label">SCORE</div><div id="kScore" class="value">0</div></div>
+            <div class="kpi"><div id="kpiWarnLabel" class="label">WARN</div><div id="kWarn" class="value">0</div></div>
+            <div class="kpi"><div id="kpiFailLabel" class="label">FAIL</div><div id="kFail" class="value">0</div></div>
+            <div class="kpi"><div id="kpiP50Label" class="label" title="P50 = median runtime duration">P50 MS</div><div id="kP50" class="value">0</div></div>
+            <div class="kpi"><div id="kpiP95Label" class="label" title="P95 = 95th percentile runtime duration">P95 MS</div><div id="kP95" class="value">0</div></div>
+          </div>
+          <div id="latencyHint" class="muted mono" style="margin: -1px 0 8px;">P50 = median duration, P95 = 95th percentile (tail latency).</div>
+
+          <div class="infogrid" id="infogrid">
+            <div class="info-card" style="--delay:1">
+              <div class="info-head"><span id="infoPassName" class="info-name">Pass Ratio</span><span id="infoPassPct" class="info-val">0%</span></div>
+              <div class="info-track"><div id="infoPassBar" class="info-bar pass"></div></div>
+            </div>
+            <div class="info-card" style="--delay:2">
+              <div class="info-head"><span id="infoWarnName" class="info-name">Warn Ratio</span><span id="infoWarnPct" class="info-val">0%</span></div>
+              <div class="info-track"><div id="infoWarnBar" class="info-bar warn"></div></div>
+            </div>
+            <div class="info-card" style="--delay:3">
+              <div class="info-head"><span id="infoFailName" class="info-name">Fail Ratio</span><span id="infoFailPct" class="info-val">0%</span></div>
+              <div class="info-track"><div id="infoFailBar" class="info-bar fail"></div></div>
+            </div>
+            <div class="info-card" style="--delay:4">
+              <div class="info-head"><span id="infoStabilityName" class="info-name">Stability</span><span id="infoStability" class="info-val">0%</span></div>
+              <div class="info-track"><div id="infoStabilityBar" class="info-bar stab"></div></div>
+            </div>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="viz-box">
+              <div id="vizSeverityTitle" class="viz-title">Severity Distribution</div>
+              <canvas id="severityCanvas" class="viz-canvas" width="280" height="136"></canvas>
+            </div>
+            <div class="viz-box">
+              <div id="vizRuntimeTitle" class="viz-title">Runtime Timeline</div>
+              <canvas id="runtimeCanvas" class="viz-canvas" width="600" height="136"></canvas>
+            </div>
+          </div>
+
+          <div class="log-box" id="liveLog"></div>
+        </div>
+
+        <div id="view-reports" class="panel-body view hidden">
+          <div class="btn-row" style="margin-bottom: 8px;">
+            <button id="btnListReports" class="btn">List Reports</button>
+            <button id="btnOpenReportsDir" class="btn">Open Reports Dir</button>
+          </div>
+          <table class="table mono" id="reportsTable">
+            <thead><tr><th id="thReportsModified">Modified</th><th id="thReportsSize">Size</th><th id="thReportsPath">Path</th><th id="thReportsAction">Action</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="view-findings" class="panel-body view hidden">
+          <div class="row">
+            <div class="field" style="grid-column: span 6;"><label id="lblSearch">Search</label><input id="findingSearch" type="text" placeholder="code/category/message" /></div>
+            <div class="field" style="grid-column: span 3;"><label id="lblSeverity">Severity</label>
+              <select id="severityFilter"><option value="ALL">ALL</option><option value="PASS">PASS</option><option value="WARN">WARN</option><option value="FAIL">FAIL</option></select>
+            </div>
+            <div class="field" style="grid-column: span 3;"><label id="lblGroup">Group</label>
+              <select id="groupFilter"><option value="none">None</option><option value="severity">Severity</option><option value="category">Category</option></select>
+            </div>
+          </div>
+
+          <table class="table" id="findingsTable">
+            <thead><tr><th id="thFindingsSeverity">Severity</th><th id="thFindingsCode">Code</th><th id="thFindingsCategory">Category</th><th id="thFindingsPoints">Points</th><th id="thFindingsMessage">Message</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="view-runtime" class="panel-body view hidden">
+          <div id="runtimeHint" class="muted" style="margin-bottom: 8px;">Runtime timeline and process outputs</div>
+          <table class="table mono" id="runtimeTable">
+            <thead><tr><th id="thRuntimeScenario">Scenario</th><th id="thRuntimeExit">Exit</th><th id="thRuntimeTimeout">Timeout</th><th id="thRuntimeDuration">Duration</th><th id="thRuntimeStdout">stdout</th><th id="thRuntimeStderr">stderr</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="view-tools" class="panel-body view hidden">
+          <div id="toolVsdbg" class="tag">vsdbg</div><span id="vsdbgStatus" class="muted">unknown</span><br />
+          <div id="toolLinters" class="tag">linters</div><span id="lintersStatus" class="muted">not configured</span>
+          <div class="btn-row" style="margin-top: 10px;">
+            <button id="btnCheckTools" class="btn">Check Tools</button>
+            <button id="btnOpenVsdbgPath" class="btn">Open vsdbg Path</button>
+          </div>
+        </div>
+
+        <div id="view-settings" class="panel-body view hidden">
+          <div class="row">
+            <div class="field" style="grid-column: span 3;"><label id="lblLanguage">Language</label>
+              <select id="langSelect"><option value="auto">Auto</option><option value="en">English</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="de">German</option></select>
+            </div>
+            <div class="field" style="grid-column: span 3;"><label id="lblAccent">Accent</label>
+              <select id="accentSelect"><option value="AMETHYST">Amethyst</option><option value="LAVA">Lava</option><option value="LIME">Lime</option><option value="CYAN">Cyan</option><option value="CRIMSON">Crimson</option><option value="GOLD">Gold</option></select>
+            </div>
+            <div class="field" style="grid-column: span 3;"><label id="lblDefaultMode">Default mode</label>
+              <select id="defaultModeSelect"><option value="MIN">MIN</option><option value="PENTEST">PENTEST</option></select>
+            </div>
+            <div class="field" style="grid-column: span 3;"><label id="lblReportsDir">Reports dir</label><input id="settingsOutDir" type="text" value="logs" /></div>
+          </div>
+          <div class="row">
+            <div class="field" style="grid-column: span 6;"><label id="lblVsdbgPath">vsdbg path</label><input id="vsdbgPath" type="text" /></div>
+            <div class="field" style="grid-column: span 6;"><label id="lblLinterPaths">Linter paths (comma separated)</label><input id="linterPaths" type="text" /></div>
+          </div>
+          <div class="btn-row">
+            <button id="btnSaveSettings" class="btn primary">Save Settings</button>
+            <button id="btnLoadSettings" class="btn">Reload</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel details">
+        <div class="panel-head"><span id="detailsTitle">Details</span><span class="mono" id="detailsMeta">-</span></div>
+        <div class="panel-body">
+          <div class="detail-line"><span id="dLabelFinalStatus" class="muted">Final status</span><span id="dStatus" class="mono">-</span></div>
+          <div class="detail-line"><span id="dLabelFindings" class="muted">Findings</span><span id="dFindings" class="mono">0</span></div>
+          <div class="detail-line"><span id="dLabelRuntimeRows" class="muted">Runtime rows</span><span id="dRuntime" class="mono">0</span></div>
+          <div class="detail-line"><span id="dLabelFlakiness" class="muted">Flakiness</span><span id="dFlakiness" class="mono">0%</span></div>
+          <div class="detail-line"><span id="dLabelStability" class="muted">Stability</span><span id="dStability" class="mono">0%</span></div>
+          <div class="detail-line"><span id="dLabelScenario" class="muted">Selected scenario</span><span id="dScenario" class="mono">-</span></div>
+          <div id="detailsBox" class="log-box" style="margin-top: 8px;"></div>
+          <div class="btn-row" style="margin-top: 8px;">
+            <button id="btnCreateBundle" class="btn">Create Repro Bundle</button>
+            <button id="btnRerunScenario" class="btn">Rerun Scenario</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span class="status-dot"></span>
+      <span id="stMode">mode=MIN</span>
+      <span id="stSandbox">sandbox=limited</span>
+      <span id="stVersion">schema=v1</span>
+      <span id="stRun">analysis=idle</span>
+    </footer>
+  </div>
+
+  <script>
+    const t = {
+      en: {
+        navHome: "Home",
+        navReports: "Reports",
+        navFindings: "Findings",
+        navRuntime: "Runtime",
+        navTools: "Tools",
+        navSettings: "Settings",
+        navSupport: "Support",
+        viewHome: "Home / Quick Start",
+        viewReports: "Reports",
+        viewFindings: "Findings",
+        viewRuntime: "Runtime",
+        viewTools: "Tools",
+        viewSettings: "Settings",
+        noReport: "No report loaded",
+        analysisFinished: "Analysis finished",
+        settingsSaved: "Settings saved",
+        topTitle: "Metsuki Analytics Console",
+        topSub: "Deep runtime and binary diagnostics workspace",
+        heroLabel: "Executable Analyzer",
+        heroTitleLead: "Program",
+        heroTitleAccent: "Analysis Workspace",
+        heroSub: "Run checks, inspect findings, and validate runtime behavior from one dashboard.",
+        heroTagFindings: "Findings",
+        heroTagRuntime: "Runtime",
+        heroTagDiagnostics: "Diagnostics",
+        heroStatParticles: "Particles",
+        heroStatRender: "Target Render",
+        heroStatAccents: "Accent Profiles",
+        heroStatTransitions: "Transition Core",
+        lblTarget: "Target EXE",
+        targetHelp: "Supported: .exe, .com, .bat, .cmd, .ps1, .scr",
+        btnPickTarget: "Choose File",
+        lblMode: "Mode",
+        lblRuns: "Runs",
+        lblTimeout: "Timeout (sec)",
+        lblOutDir: "Reports directory",
+        confirmPentest: "I confirm pentest extended tests (opt-in)",
+        btnRun: "Run Analysis",
+        btnStop: "Stop",
+        btnRefreshReports: "Refresh Reports",
+        kpiStatusLabel: "STATUS",
+        kpiScoreLabel: "SCORE",
+        kpiWarnLabel: "WARN",
+        kpiFailLabel: "FAIL",
+        kpiP50Label: "P50 MS",
+        kpiP95Label: "P95 MS",
+        p50Title: "P50 = median runtime duration",
+        p95Title: "P95 = 95th percentile runtime duration",
+        latencyHint: "P50 = median duration, P95 = 95th percentile (tail latency).",
+        infoPassName: "Pass Ratio",
+        infoWarnName: "Warn Ratio",
+        infoFailName: "Fail Ratio",
+        infoStabilityName: "Stability",
+        vizSeverityTitle: "Severity Distribution",
+        vizRuntimeTitle: "Runtime Timeline",
+        btnListReports: "List Reports",
+        btnOpenReportsDir: "Open Reports Dir",
+        thReportsModified: "Modified",
+        thReportsSize: "Size",
+        thReportsPath: "Path",
+        thReportsAction: "Action",
+        btnOpen: "Open",
+        lblSearch: "Search",
+        findingSearchPlaceholder: "code/category/message",
+        lblSeverity: "Severity",
+        lblGroup: "Group",
+        groupNone: "None",
+        groupSeverity: "Severity",
+        groupCategory: "Category",
+        thFindingsSeverity: "Severity",
+        thFindingsCode: "Code",
+        thFindingsCategory: "Category",
+        thFindingsPoints: "Points",
+        thFindingsMessage: "Message",
+        runtimeHint: "Runtime timeline and process outputs",
+        thRuntimeScenario: "Scenario",
+        thRuntimeExit: "Exit",
+        thRuntimeTimeout: "Timeout",
+        thRuntimeDuration: "Duration",
+        thRuntimeStdout: "stdout",
+        thRuntimeStderr: "stderr",
+        yes: "yes",
+        no: "no",
+        noRuntimeData: "No runtime data",
+        toolVsdbg: "vsdbg",
+        toolLinters: "linters",
+        btnCheckTools: "Check Tools",
+        btnOpenVsdbgPath: "Open vsdbg Path",
+        configured: "configured",
+        notConfigured: "not configured",
+        unknown: "unknown",
+        lblLanguage: "Language",
+        lblAccent: "Accent",
+        lblDefaultMode: "Default mode",
+        lblReportsDir: "Reports dir",
+        lblVsdbgPath: "vsdbg path",
+        lblLinterPaths: "Linter paths (comma separated)",
+        btnSaveSettings: "Save Settings",
+        btnLoadSettings: "Reload",
+        detailsTitle: "Details",
+        dLabelFinalStatus: "Final status",
+        dLabelFindings: "Findings",
+        dLabelRuntimeRows: "Runtime rows",
+        dLabelFlakiness: "Flakiness",
+        dLabelStability: "Stability",
+        dLabelScenario: "Selected scenario",
+        btnCreateBundle: "Create Repro Bundle",
+        btnRerunScenario: "Rerun Scenario",
+        scenarioPrefix: "scenario=",
+        statusIdle: "IDLE",
+        statusRunning: "RUNNING",
+        statusDone: "DONE",
+        accentApplied: "Accent applied",
+        languageApplied: "Language applied",
+        stopRequested: "Stop requested",
+        noReportForBundle: "No report loaded for bundle",
+        bundleCreated: "Bundle created",
+        selectScenarioFirst: "Select runtime scenario first",
+        pickerTitle: "Select value",
+        pickerSub: "Pick a value and press Apply",
+        pickerCurrent: "Current",
+        pickerPending: "Pending",
+        pickerCancel: "Cancel",
+        pickerApply: "Apply"
+      },
+      ru: {
+        navHome: "Главная",
+        navReports: "Отчеты",
+        navFindings: "Находки",
+        navRuntime: "Рантайм",
+        navTools: "Инструменты",
+        navSettings: "Настройки",
+        navSupport: "Поддержка",
+        viewHome: "Главная / Быстрый старт",
+        viewReports: "Отчеты",
+        viewFindings: "Находки",
+        viewRuntime: "Рантайм",
+        viewTools: "Инструменты",
+        viewSettings: "Настройки",
+        noReport: "Отчет не загружен",
+        analysisFinished: "Анализ завершен",
+        settingsSaved: "Настройки сохранены",
+        topTitle: "Консоль аналитики Metsuki",
+        topSub: "Рабочее пространство для анализа runtime и бинарной диагностики",
+        heroLabel: "Анализ исполняемых файлов",
+        heroTitleLead: "Рабочее",
+        heroTitleAccent: "пространство анализа",
+        heroSub: "Запускайте проверки, изучайте находки и проверяйте поведение runtime в одном окне.",
+        heroTagFindings: "Находки",
+        heroTagRuntime: "Рантайм",
+        heroTagDiagnostics: "Диагностика",
+        heroStatParticles: "Частицы",
+        heroStatRender: "Целевой рендер",
+        heroStatAccents: "Профили акцента",
+        heroStatTransitions: "Ядро переходов",
+        lblTarget: "Целевой EXE",
+        targetHelp: "Поддерживается: .exe, .com, .bat, .cmd, .ps1, .scr",
+        btnPickTarget: "Выбрать файл",
+        lblMode: "Режим",
+        lblRuns: "Прогоны",
+        lblTimeout: "Таймаут (сек)",
+        lblOutDir: "Папка отчетов",
+        confirmPentest: "Подтверждаю расширенные pentest-проверки (opt-in)",
+        btnRun: "Запустить анализ",
+        btnStop: "Остановить",
+        btnRefreshReports: "Обновить отчеты",
+        kpiStatusLabel: "СТАТУС",
+        kpiScoreLabel: "ОЦЕНКА",
+        kpiWarnLabel: "ПРЕДУПР.",
+        kpiFailLabel: "ОШИБКИ",
+        kpiP50Label: "P50 МС",
+        kpiP95Label: "P95 МС",
+        p50Title: "P50 = медиана длительности выполнения",
+        p95Title: "P95 = 95-й перцентиль длительности выполнения",
+        latencyHint: "P50 = медианная длительность, P95 = 95-й перцентиль (хвостовая задержка).",
+        infoPassName: "Доля PASS",
+        infoWarnName: "Доля WARN",
+        infoFailName: "Доля FAIL",
+        infoStabilityName: "Стабильность",
+        vizSeverityTitle: "Распределение severity",
+        vizRuntimeTitle: "Таймлайн runtime",
+        btnListReports: "Список отчетов",
+        btnOpenReportsDir: "Открыть папку отчетов",
+        thReportsModified: "Изменен",
+        thReportsSize: "Размер",
+        thReportsPath: "Путь",
+        thReportsAction: "Действие",
+        btnOpen: "Открыть",
+        lblSearch: "Поиск",
+        findingSearchPlaceholder: "код/категория/сообщение",
+        lblSeverity: "Severity",
+        lblGroup: "Группировка",
+        groupNone: "Нет",
+        groupSeverity: "Severity",
+        groupCategory: "Категория",
+        thFindingsSeverity: "Severity",
+        thFindingsCode: "Код",
+        thFindingsCategory: "Категория",
+        thFindingsPoints: "Баллы",
+        thFindingsMessage: "Сообщение",
+        runtimeHint: "Таймлайн runtime и выводы процессов",
+        thRuntimeScenario: "Сценарий",
+        thRuntimeExit: "Выход",
+        thRuntimeTimeout: "Таймаут",
+        thRuntimeDuration: "Длительность",
+        thRuntimeStdout: "stdout",
+        thRuntimeStderr: "stderr",
+        yes: "да",
+        no: "нет",
+        noRuntimeData: "Нет runtime-данных",
+        toolVsdbg: "vsdbg",
+        toolLinters: "линтеры",
+        btnCheckTools: "Проверить инструменты",
+        btnOpenVsdbgPath: "Открыть путь vsdbg",
+        configured: "настроено",
+        notConfigured: "не настроено",
+        unknown: "неизвестно",
+        lblLanguage: "Язык",
+        lblAccent: "Акцент",
+        lblDefaultMode: "Режим по умолчанию",
+        lblReportsDir: "Папка отчетов",
+        lblVsdbgPath: "Путь к vsdbg",
+        lblLinterPaths: "Пути линтеров (через запятую)",
+        btnSaveSettings: "Сохранить настройки",
+        btnLoadSettings: "Перезагрузить",
+        detailsTitle: "Детали",
+        dLabelFinalStatus: "Финальный статус",
+        dLabelFindings: "Находки",
+        dLabelRuntimeRows: "Строк runtime",
+        dLabelFlakiness: "Флейки",
+        dLabelStability: "Стабильность",
+        dLabelScenario: "Выбранный сценарий",
+        btnCreateBundle: "Создать Repro Bundle",
+        btnRerunScenario: "Перезапустить сценарий",
+        scenarioPrefix: "сценарий=",
+        statusIdle: "ОЖИДАНИЕ",
+        statusRunning: "В РАБОТЕ",
+        statusDone: "ГОТОВО",
+        accentApplied: "Акцент применен",
+        languageApplied: "Язык применен",
+        stopRequested: "Запрошена остановка",
+        noReportForBundle: "Для бандла не загружен отчет",
+        bundleCreated: "Бандл создан",
+        selectScenarioFirst: "Сначала выберите runtime-сценарий",
+        pickerTitle: "Выбор значения",
+        pickerSub: "Выберите значение и нажмите Применить",
+        pickerCurrent: "Текущее",
+        pickerPending: "Новое",
+        pickerCancel: "Отмена",
+        pickerApply: "Применить"
+      },
+      uk: {
+        navHome: "Головна",
+        navReports: "Звіти",
+        navFindings: "Знахідки",
+        navRuntime: "Рантайм",
+        navTools: "Інструменти",
+        navSettings: "Налаштування",
+        navSupport: "Підтримка",
+        viewHome: "Головна / Швидкий старт",
+        viewReports: "Звіти",
+        viewFindings: "Знахідки",
+        viewRuntime: "Рантайм",
+        viewTools: "Інструменти",
+        viewSettings: "Налаштування",
+        noReport: "Звіт не завантажено",
+        analysisFinished: "Аналіз завершено",
+        settingsSaved: "Налаштування збережено",
+        topTitle: "Консоль аналітики Metsuki",
+        topSub: "Робочий простір для runtime і бінарної діагностики",
+        heroLabel: "Аналіз виконуваних файлів",
+        heroTitleLead: "Робочий",
+        heroTitleAccent: "простір аналізу",
+        heroSub: "Запускайте перевірки, аналізуйте знахідки та перевіряйте поведінку runtime в одній панелі.",
+        heroTagFindings: "Знахідки",
+        heroTagRuntime: "Рантайм",
+        heroTagDiagnostics: "Діагностика",
+        heroStatParticles: "Частинки",
+        heroStatRender: "Цільовий рендер",
+        heroStatAccents: "Профілі акценту",
+        heroStatTransitions: "Ядро переходів",
+        lblTarget: "Цільовий EXE",
+        targetHelp: "Підтримується: .exe, .com, .bat, .cmd, .ps1, .scr",
+        btnPickTarget: "Обрати файл",
+        lblMode: "Режим",
+        lblRuns: "Запуски",
+        lblTimeout: "Таймаут (сек)",
+        lblOutDir: "Тека звітів",
+        confirmPentest: "Підтверджую розширені pentest-перевірки (opt-in)",
+        btnRun: "Запустити аналіз",
+        btnStop: "Зупинити",
+        btnRefreshReports: "Оновити звіти",
+        kpiStatusLabel: "СТАТУС",
+        kpiScoreLabel: "ОЦІНКА",
+        kpiWarnLabel: "ПОПЕР.",
+        kpiFailLabel: "ПОМИЛКИ",
+        kpiP50Label: "P50 МС",
+        kpiP95Label: "P95 МС",
+        p50Title: "P50 = медіана тривалості виконання",
+        p95Title: "P95 = 95-й перцентиль тривалості виконання",
+        latencyHint: "P50 = медіанна тривалість, P95 = 95-й перцентиль (tail latency).",
+        infoPassName: "Частка PASS",
+        infoWarnName: "Частка WARN",
+        infoFailName: "Частка FAIL",
+        infoStabilityName: "Стабільність",
+        vizSeverityTitle: "Розподіл severity",
+        vizRuntimeTitle: "Таймлайн runtime",
+        btnListReports: "Список звітів",
+        btnOpenReportsDir: "Відкрити теку звітів",
+        thReportsModified: "Змінено",
+        thReportsSize: "Розмір",
+        thReportsPath: "Шлях",
+        thReportsAction: "Дія",
+        btnOpen: "Відкрити",
+        lblSearch: "Пошук",
+        findingSearchPlaceholder: "код/категорія/повідомлення",
+        lblSeverity: "Severity",
+        lblGroup: "Групування",
+        groupNone: "Немає",
+        groupSeverity: "Severity",
+        groupCategory: "Категорія",
+        thFindingsSeverity: "Severity",
+        thFindingsCode: "Код",
+        thFindingsCategory: "Категорія",
+        thFindingsPoints: "Бали",
+        thFindingsMessage: "Повідомлення",
+        runtimeHint: "Таймлайн runtime і вивід процесів",
+        thRuntimeScenario: "Сценарій",
+        thRuntimeExit: "Вихід",
+        thRuntimeTimeout: "Таймаут",
+        thRuntimeDuration: "Тривалість",
+        thRuntimeStdout: "stdout",
+        thRuntimeStderr: "stderr",
+        yes: "так",
+        no: "ні",
+        noRuntimeData: "Немає runtime-даних",
+        toolVsdbg: "vsdbg",
+        toolLinters: "лінтери",
+        btnCheckTools: "Перевірити інструменти",
+        btnOpenVsdbgPath: "Відкрити шлях vsdbg",
+        configured: "налаштовано",
+        notConfigured: "не налаштовано",
+        unknown: "невідомо",
+        lblLanguage: "Мова",
+        lblAccent: "Акцент",
+        lblDefaultMode: "Режим за замовчуванням",
+        lblReportsDir: "Тека звітів",
+        lblVsdbgPath: "Шлях до vsdbg",
+        lblLinterPaths: "Шляхи лінтерів (через кому)",
+        btnSaveSettings: "Зберегти налаштування",
+        btnLoadSettings: "Перезавантажити",
+        detailsTitle: "Деталі",
+        dLabelFinalStatus: "Фінальний статус",
+        dLabelFindings: "Знахідки",
+        dLabelRuntimeRows: "Рядки runtime",
+        dLabelFlakiness: "Флейкі",
+        dLabelStability: "Стабільність",
+        dLabelScenario: "Обраний сценарій",
+        btnCreateBundle: "Створити Repro Bundle",
+        btnRerunScenario: "Перезапустити сценарій",
+        scenarioPrefix: "сценарій=",
+        statusIdle: "ОЧІКУВАННЯ",
+        statusRunning: "ВИКОНУЄТЬСЯ",
+        statusDone: "ГОТОВО",
+        accentApplied: "Акцент застосовано",
+        languageApplied: "Мову застосовано",
+        stopRequested: "Запит на зупинку надіслано",
+        noReportForBundle: "Для бандла звіт не завантажено",
+        bundleCreated: "Бандл створено",
+        selectScenarioFirst: "Спочатку оберіть runtime-сценарій",
+        pickerTitle: "Вибір значення",
+        pickerSub: "Оберіть значення та натисніть Застосувати",
+        pickerCurrent: "Поточне",
+        pickerPending: "Нове",
+        pickerCancel: "Скасувати",
+        pickerApply: "Застосувати"
+      },
+      de: {
+        navHome: "Start",
+        navReports: "Berichte",
+        navFindings: "Befunde",
+        navRuntime: "Laufzeit",
+        navTools: "Werkzeuge",
+        navSettings: "Einstellungen",
+        navSupport: "Support",
+        viewHome: "Start / Schnellstart",
+        viewReports: "Berichte",
+        viewFindings: "Befunde",
+        viewRuntime: "Laufzeit",
+        viewTools: "Werkzeuge",
+        viewSettings: "Einstellungen",
+        noReport: "Kein Bericht geladen",
+        analysisFinished: "Analyse abgeschlossen",
+        settingsSaved: "Einstellungen gespeichert",
+        topTitle: "Metsuki Analysekonsole",
+        topSub: "Workspace fuer Runtime- und Binaerdiagnostik",
+        heroLabel: "Executable Analyzer",
+        heroTitleLead: "Programm",
+        heroTitleAccent: "Analyse-Workspace",
+        heroSub: "Pruefungen ausfuehren, Befunde analysieren und Runtime-Verhalten im selben Dashboard validieren.",
+        heroTagFindings: "Befunde",
+        heroTagRuntime: "Laufzeit",
+        heroTagDiagnostics: "Diagnostik",
+        heroStatParticles: "Partikel",
+        heroStatRender: "Ziel-Render",
+        heroStatAccents: "Akzentprofile",
+        heroStatTransitions: "Transition-Kern",
+        lblTarget: "Ziel-EXE",
+        targetHelp: "Unterstuetzt: .exe, .com, .bat, .cmd, .ps1, .scr",
+        btnPickTarget: "Datei waehlen",
+        lblMode: "Modus",
+        lblRuns: "Laeufe",
+        lblTimeout: "Timeout (Sek)",
+        lblOutDir: "Berichtsordner",
+        confirmPentest: "Ich bestaetige erweiterte Pentest-Tests (opt-in)",
+        btnRun: "Analyse starten",
+        btnStop: "Stopp",
+        btnRefreshReports: "Berichte aktualisieren",
+        kpiStatusLabel: "STATUS",
+        kpiScoreLabel: "SCORE",
+        kpiWarnLabel: "WARN",
+        kpiFailLabel: "FAIL",
+        kpiP50Label: "P50 MS",
+        kpiP95Label: "P95 MS",
+        p50Title: "P50 = Median der Laufzeitdauer",
+        p95Title: "P95 = 95. Perzentil der Laufzeitdauer",
+        latencyHint: "P50 = Median, P95 = 95. Perzentil (Tail-Latency).",
+        infoPassName: "Pass-Anteil",
+        infoWarnName: "Warn-Anteil",
+        infoFailName: "Fail-Anteil",
+        infoStabilityName: "Stabilitaet",
+        vizSeverityTitle: "Severity-Verteilung",
+        vizRuntimeTitle: "Runtime-Timeline",
+        btnListReports: "Berichte auflisten",
+        btnOpenReportsDir: "Berichtsordner oeffnen",
+        thReportsModified: "Geaendert",
+        thReportsSize: "Groesse",
+        thReportsPath: "Pfad",
+        thReportsAction: "Aktion",
+        btnOpen: "Oeffnen",
+        lblSearch: "Suche",
+        findingSearchPlaceholder: "code/kategorie/nachricht",
+        lblSeverity: "Severity",
+        lblGroup: "Gruppierung",
+        groupNone: "Keine",
+        groupSeverity: "Severity",
+        groupCategory: "Kategorie",
+        thFindingsSeverity: "Severity",
+        thFindingsCode: "Code",
+        thFindingsCategory: "Kategorie",
+        thFindingsPoints: "Punkte",
+        thFindingsMessage: "Nachricht",
+        runtimeHint: "Runtime-Timeline und Prozessausgaben",
+        thRuntimeScenario: "Szenario",
+        thRuntimeExit: "Exit",
+        thRuntimeTimeout: "Timeout",
+        thRuntimeDuration: "Dauer",
+        thRuntimeStdout: "stdout",
+        thRuntimeStderr: "stderr",
+        yes: "ja",
+        no: "nein",
+        noRuntimeData: "Keine Runtime-Daten",
+        toolVsdbg: "vsdbg",
+        toolLinters: "Linter",
+        btnCheckTools: "Tools pruefen",
+        btnOpenVsdbgPath: "vsdbg-Pfad oeffnen",
+        configured: "konfiguriert",
+        notConfigured: "nicht konfiguriert",
+        unknown: "unbekannt",
+        lblLanguage: "Sprache",
+        lblAccent: "Akzent",
+        lblDefaultMode: "Standardmodus",
+        lblReportsDir: "Berichtsordner",
+        lblVsdbgPath: "vsdbg-Pfad",
+        lblLinterPaths: "Linter-Pfade (kommagetrennt)",
+        btnSaveSettings: "Einstellungen speichern",
+        btnLoadSettings: "Neu laden",
+        detailsTitle: "Details",
+        dLabelFinalStatus: "Endstatus",
+        dLabelFindings: "Befunde",
+        dLabelRuntimeRows: "Runtime-Zeilen",
+        dLabelFlakiness: "Flakiness",
+        dLabelStability: "Stabilitaet",
+        dLabelScenario: "Ausgewaehltes Szenario",
+        btnCreateBundle: "Repro Bundle erstellen",
+        btnRerunScenario: "Szenario erneut ausfuehren",
+        scenarioPrefix: "szenario=",
+        statusIdle: "IDLE",
+        statusRunning: "LAEUFT",
+        statusDone: "FERTIG",
+        accentApplied: "Akzent angewendet",
+        languageApplied: "Sprache angewendet",
+        stopRequested: "Stopp angefordert",
+        noReportForBundle: "Kein Bericht fuer Bundle geladen",
+        bundleCreated: "Bundle erstellt",
+        selectScenarioFirst: "Bitte zuerst ein Runtime-Szenario waehlen",
+        pickerTitle: "Wert auswaehlen",
+        pickerSub: "Wert auswaehlen und Anwenden druecken",
+        pickerCurrent: "Aktuell",
+        pickerPending: "Ausstehend",
+        pickerCancel: "Abbrechen",
+        pickerApply: "Anwenden"
+      }
+    };
+
+    const state = {
+      lang: "en",
+      accent: "AMETHYST",
+      settings: null,
+      report: null,
+      reports: [],
+      logs: [],
+      selectedScenario: null,
+      pending: new Map(),
+      view: "home",
+      runStart: 0,
+      progressTick: null
+    };
+
+    const NAV_VIEW_SELECTOR = ".nav-btn[data-view]";
+
+    function tr(key) {
+      const map = t[state.lang] || t.en;
+      return map[key] || key;
+    }
+
+    function setText(id, key) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = tr(key);
+    }
+
+    function setPlaceholder(id, key) {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute("placeholder", tr(key));
+    }
+
+    function viewKey(view) {
+      const map = {
+        home: "viewHome",
+        reports: "viewReports",
+        findings: "viewFindings",
+        runtime: "viewRuntime",
+        tools: "viewTools",
+        settings: "viewSettings"
+      };
+      return map[view] || "viewHome";
+    }
+
+    function localizeToolStatus(value) {
+      const v = String(value || "").toLowerCase();
+      if (!v) return tr("unknown");
+      if (v === "configured") return tr("configured");
+      if (v === "not configured") return tr("notConfigured");
+      if (v === "unknown") return tr("unknown");
+      return value;
+    }
+
+    function pickLang(raw) {
+      const v = (raw || "").toLowerCase();
+      if (v === "ru" || v === "uk" || v === "de" || v === "en") return v;
+      const n = (navigator.language || "en").toLowerCase();
+      if (n.startsWith("ru")) return "ru";
+      if (n.startsWith("uk")) return "uk";
+      if (n.startsWith("de")) return "de";
+      return "en";
+    }
+
+    function applyTheme(theme) {
+      const raw = String(theme || "AMETHYST").toUpperCase();
+      const allowed = ["AMETHYST", "LAVA", "LIME", "CYAN", "CRIMSON", "GOLD"];
+      const next = allowed.includes(raw) ? raw : "AMETHYST";
+      const root = document.documentElement;
+      const prev = root.getAttribute("data-accent") || "AMETHYST";
+      document.documentElement.setAttribute("data-theme", "DARK");
+      document.documentElement.setAttribute("data-accent", next);
+      document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + next;
+      state.accent = next;
+
+      if (prev !== next) {
+        root.classList.add("accent-morph");
+        setTimeout(() => root.classList.remove("accent-morph"), 210);
+        if (state.report) {
+          const m = computeMetrics(state.report);
+          drawRuntimeChart(m);
+        }
+      }
+    }
+
+    function applyTexts() {
+      setText("navHome", "navHome");
+      setText("navReports", "navReports");
+      setText("navFindings", "navFindings");
+      setText("navRuntime", "navRuntime");
+      setText("navTools", "navTools");
+      setText("navSettings", "navSettings");
+      setText("navSupport", "navSupport");
+      setText("titleMain", "topTitle");
+      setText("titleSub", "topSub");
+      setText("heroLabel", "heroLabel");
+      setText("heroTitleLead", "heroTitleLead");
+      setText("heroTitleAccent", "heroTitleAccent");
+      setText("heroSub", "heroSub");
+      setText("heroTagFindings", "heroTagFindings");
+      setText("heroTagRuntime", "heroTagRuntime");
+      setText("heroTagDiagnostics", "heroTagDiagnostics");
+      setText("heroStatParticles", "heroStatParticles");
+      setText("heroStatRender", "heroStatRender");
+      setText("heroStatAccents", "heroStatAccents");
+      setText("heroStatTransitions", "heroStatTransitions");
+      setText("lblTarget", "lblTarget");
+      setText("targetHelp", "targetHelp");
+      setText("btnPickTarget", "btnPickTarget");
+      setText("lblMode", "lblMode");
+      setText("lblRuns", "lblRuns");
+      setText("lblTimeout", "lblTimeout");
+      setText("lblOutDir", "lblOutDir");
+      setText("btnRun", "btnRun");
+      setText("btnStop", "btnStop");
+      setText("btnRefreshReports", "btnRefreshReports");
+      setText("kpiStatusLabel", "kpiStatusLabel");
+      setText("kpiScoreLabel", "kpiScoreLabel");
+      setText("kpiWarnLabel", "kpiWarnLabel");
+      setText("kpiFailLabel", "kpiFailLabel");
+      setText("kpiP50Label", "kpiP50Label");
+      setText("kpiP95Label", "kpiP95Label");
+      document.getElementById("kpiP50Label").title = tr("p50Title");
+      document.getElementById("kpiP95Label").title = tr("p95Title");
+      setText("latencyHint", "latencyHint");
+      setText("infoPassName", "infoPassName");
+      setText("infoWarnName", "infoWarnName");
+      setText("infoFailName", "infoFailName");
+      setText("infoStabilityName", "infoStabilityName");
+      setText("vizSeverityTitle", "vizSeverityTitle");
+      setText("vizRuntimeTitle", "vizRuntimeTitle");
+      setText("btnListReports", "btnListReports");
+      setText("btnOpenReportsDir", "btnOpenReportsDir");
+      setText("thReportsModified", "thReportsModified");
+      setText("thReportsSize", "thReportsSize");
+      setText("thReportsPath", "thReportsPath");
+      setText("thReportsAction", "thReportsAction");
+      setText("lblSearch", "lblSearch");
+      setPlaceholder("findingSearch", "findingSearchPlaceholder");
+      setText("lblSeverity", "lblSeverity");
+      setText("lblGroup", "lblGroup");
+      const group = document.getElementById("groupFilter");
+      if (group && group.options.length >= 3) {
+        group.options[0].textContent = tr("groupNone");
+        group.options[1].textContent = tr("groupSeverity");
+        group.options[2].textContent = tr("groupCategory");
+      }
+      setText("thFindingsSeverity", "thFindingsSeverity");
+      setText("thFindingsCode", "thFindingsCode");
+      setText("thFindingsCategory", "thFindingsCategory");
+      setText("thFindingsPoints", "thFindingsPoints");
+      setText("thFindingsMessage", "thFindingsMessage");
+      setText("runtimeHint", "runtimeHint");
+      setText("thRuntimeScenario", "thRuntimeScenario");
+      setText("thRuntimeExit", "thRuntimeExit");
+      setText("thRuntimeTimeout", "thRuntimeTimeout");
+      setText("thRuntimeDuration", "thRuntimeDuration");
+      setText("thRuntimeStdout", "thRuntimeStdout");
+      setText("thRuntimeStderr", "thRuntimeStderr");
+      setText("toolVsdbg", "toolVsdbg");
+      setText("toolLinters", "toolLinters");
+      setText("btnCheckTools", "btnCheckTools");
+      setText("btnOpenVsdbgPath", "btnOpenVsdbgPath");
+      setText("lblLanguage", "lblLanguage");
+      setText("lblAccent", "lblAccent");
+      setText("lblDefaultMode", "lblDefaultMode");
+      setText("lblReportsDir", "lblReportsDir");
+      setText("lblVsdbgPath", "lblVsdbgPath");
+      setText("lblLinterPaths", "lblLinterPaths");
+      setText("btnSaveSettings", "btnSaveSettings");
+      setText("btnLoadSettings", "btnLoadSettings");
+      setText("detailsTitle", "detailsTitle");
+      setText("dLabelFinalStatus", "dLabelFinalStatus");
+      setText("dLabelFindings", "dLabelFindings");
+      setText("dLabelRuntimeRows", "dLabelRuntimeRows");
+      setText("dLabelFlakiness", "dLabelFlakiness");
+      setText("dLabelStability", "dLabelStability");
+      setText("dLabelScenario", "dLabelScenario");
+      setText("btnCreateBundle", "btnCreateBundle");
+      setText("btnRerunScenario", "btnRerunScenario");
+      document.getElementById("viewTitle").textContent = tr(viewKey(state.view));
+      if (!state.report) {
+        document.getElementById("reportHint").textContent = tr("noReport");
+      }
+      const statusEl = document.getElementById("kStatus");
+      const status = statusEl.textContent.trim().toUpperCase();
+      if (["IDLE", "ОЖИДАНИЕ", "ОЧІКУВАННЯ"].includes(status)) statusEl.textContent = tr("statusIdle");
+      if (["RUNNING", "В РАБОТЕ", "ВИКОНУЄТЬСЯ", "LAEUFT"].includes(status)) statusEl.textContent = tr("statusRunning");
+      if (["DONE", "ГОТОВО", "FERTIG"].includes(status)) statusEl.textContent = tr("statusDone");
+      const mode = document.getElementById("modeSelect").value || "MIN";
+      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + mode;
+      document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + (state.accent || "AMETHYST");
+      document.querySelector(".confirm-check-text").textContent = tr("confirmPentest");
+      const supportBtn = document.getElementById("btnSupport");
+      if (supportBtn) supportBtn.title = tr("navSupport");
+      syncEnhancedSelects();
+    }
+
+    function initHeroParticles() {
+      const c = document.getElementById("heroParticles");
+      if (!c) return;
+      const ctx = c.getContext("2d");
+      const stateP = { dots: [], raf: 0, w: 0, h: 0, dpr: 1 };
+
+      const build = () => {
+        const rect = c.getBoundingClientRect();
+        stateP.dpr = Math.min(2, window.devicePixelRatio || 1);
+        stateP.w = Math.max(320, Math.floor(rect.width));
+        stateP.h = Math.max(180, Math.floor(rect.height));
+        c.width = Math.floor(stateP.w * stateP.dpr);
+        c.height = Math.floor(stateP.h * stateP.dpr);
+        const count = Math.max(64, Math.floor((stateP.w * stateP.h) / 4500));
+        stateP.dots = Array.from({ length: count }, () => ({
+          x: Math.random() * stateP.w,
+          y: Math.random() * stateP.h,
+          vx: (Math.random() - 0.5) * 0.48,
+          vy: (Math.random() - 0.5) * 0.48,
+          r: 0.9 + Math.random() * 1.4
+        }));
+      };
+
+      const tick = () => {
+        const accent = cssVar("--accent", "#ff6b2e");
+        const accent2 = cssVar("--accent-2", "#ff9d2e");
+        ctx.setTransform(stateP.dpr, 0, 0, stateP.dpr, 0, 0);
+        ctx.clearRect(0, 0, stateP.w, stateP.h);
+
+        for (let i = 0; i < stateP.dots.length; i++) {
+          const a = stateP.dots[i];
+          a.x += a.vx;
+          a.y += a.vy;
+          if (a.x < -10 || a.x > stateP.w + 10) a.vx *= -1;
+          if (a.y < -10 || a.y > stateP.h + 10) a.vy *= -1;
+
+          for (let j = i + 1; j < stateP.dots.length; j++) {
+            const b = stateP.dots[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 120) continue;
+            ctx.globalAlpha = (1 - dist / 120) * 0.32;
+            ctx.strokeStyle = i % 2 === 0 ? accent : accent2;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+
+        ctx.globalAlpha = 0.82;
+        for (const p of stateP.dots) {
+          ctx.fillStyle = Math.random() > 0.5 ? accent : accent2;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        stateP.raf = requestAnimationFrame(tick);
+      };
+
+      build();
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        stateP.raf = requestAnimationFrame(tick);
+      }
+      window.addEventListener("resize", () => {
+        cancelAnimationFrame(stateP.raf);
+        build();
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          stateP.raf = requestAnimationFrame(tick);
+        }
+      });
+    }
+
+    function syncEnhancedSelects() {
+      document.querySelectorAll("select[data-ux-enhanced='1']").forEach((select) => {
+        if (typeof select.__uxSync === "function") select.__uxSync();
+      });
+    }
+
+    function showSelectDialog(select, titleText) {
+      const old = document.getElementById("selectDialog");
+      if (old) old.remove();
+
+      const optionLabel = (opt) => {
+        const label = String((opt && (opt.label || opt.textContent)) || "").trim();
+        if (label) return label;
+        const fallback = String((opt && opt.value) || "").trim();
+        return fallback || "-";
+      };
+
+      const options = Array.from(select.options).filter((opt) => !opt.disabled);
+      let pendingValue = select.value;
+
+      const wrap = document.createElement("div");
+      wrap.id = "selectDialog";
+      wrap.className = "picker-backdrop";
+      wrap.innerHTML = `
+        <div class="picker-dialog" role="dialog" aria-modal="true" aria-label="${tr("pickerTitle")}">
+          <div class="picker-head">
+            <div>
+              <div class="picker-title">${titleText || tr("pickerTitle")}</div>
+              <div class="picker-sub">${tr("pickerSub")}</div>
+            </div>
+          </div>
+          <div class="picker-body">
+            <div class="picker-list" id="pickerList"></div>
+            <div class="picker-side">
+              <div>
+                <div class="picker-k">${tr("pickerCurrent")}</div>
+                <div class="picker-v" id="pickerCurrent">-</div>
+              </div>
+              <div>
+                <div class="picker-k">${tr("pickerPending")}</div>
+                <div class="picker-v" id="pickerPending">-</div>
+              </div>
+            </div>
+          </div>
+          <div class="picker-foot">
+            <button class="btn" id="pickerCancel" type="button">${tr("pickerCancel")}</button>
+            <button class="btn primary" id="pickerApply" type="button">${tr("pickerApply")}</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(wrap);
+
+      const list = document.getElementById("pickerList");
+      const currentBox = document.getElementById("pickerCurrent");
+      const pendingBox = document.getElementById("pickerPending");
+
+      const selectedLabel = () => {
+        const selected = options.find((opt) => opt.value === pendingValue);
+        return selected ? optionLabel(selected) : "-";
+      };
+
+      currentBox.textContent = optionLabel(select.options[select.selectedIndex]);
+      pendingBox.textContent = selectedLabel();
+
+      const render = () => {
+        list.innerHTML = "";
+        options.forEach((opt) => {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "picker-item" + (opt.value === pendingValue ? " is-active" : "");
+          item.textContent = optionLabel(opt);
+          item.addEventListener("click", () => {
+            pendingValue = opt.value;
+            pendingBox.textContent = selectedLabel();
+            render();
+          });
+          item.addEventListener("dblclick", () => {
+            pendingValue = opt.value;
+            applyAndClose();
+          });
+          list.appendChild(item);
+        });
+      };
+
+      const close = () => {
+        document.removeEventListener("keydown", onKey);
+        if (wrap && wrap.parentNode) wrap.remove();
+      };
+
+      const applyAndClose = () => {
+        if (select.value !== pendingValue) {
+          select.value = pendingValue;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (typeof select.__uxSync === "function") select.__uxSync();
+        close();
+      };
+
+      const onKey = (e) => {
+        if (e.key === "Escape") {
+          close();
+          return;
+        }
+        if (e.key === "Enter") {
+          applyAndClose();
+        }
+      };
+
+      wrap.addEventListener("click", (e) => {
+        if (e.target === wrap) close();
+      });
+
+      document.getElementById("pickerCancel").addEventListener("click", close);
+      document.getElementById("pickerApply").addEventListener("click", applyAndClose);
+      document.addEventListener("keydown", onKey);
+      render();
+    }
+
+    function showApplyPopup(kind, label, onApply, onCancel) {
+      const old = document.getElementById("applyPopup");
+      if (old) old.remove();
+
+      const pop = document.createElement("div");
+      pop.id = "applyPopup";
+      pop.className = "apply-pop";
+      pop.innerHTML = `<div class="apply-pop-title">Preview</div><div class="apply-pop-text">Selected ${label}. Apply now?</div><div class="apply-pop-row"><button class="btn" id="applyCancel">Cancel</button><button class="btn primary" id="applyOk">Apply</button></div>`;
+      document.body.appendChild(pop);
+
+      const close = () => {
+        if (pop && pop.parentNode) pop.remove();
+      };
+
+      document.getElementById("applyCancel").addEventListener("click", () => {
+        close();
+        onCancel();
+      });
+      document.getElementById("applyOk").addEventListener("click", () => {
+        close();
+        onApply();
+      });
+
+      setTimeout(() => {
+        if (document.getElementById("applyPopup")) {
+          close();
+          onCancel();
+        }
+      }, 5200);
+    }
+
+    function previewThemeChange(nextTheme) {
+      const select = document.getElementById("accentSelect");
+      const previous = state.settings && state.settings.theme ? String(state.settings.theme).toUpperCase() : state.accent || "AMETHYST";
+      const next = String(nextTheme || "AMETHYST").toUpperCase();
+      if (next === String(previous).toUpperCase()) return;
+
+      applyTheme(next);
+      if (!state.settings) state.settings = {};
+      state.settings.theme = next;
+      select.value = next;
+      syncEnhancedSelects();
+      flashNote(tr("accentApplied"));
+    }
+
+    function previewLanguageChange(nextLangRaw) {
+      const select = document.getElementById("langSelect");
+      const previous = state.settings && state.settings.language ? String(state.settings.language).toLowerCase() : "auto";
+      const nextRaw = String(nextLangRaw || "auto").toLowerCase();
+      if (nextRaw === previous) return;
+
+      state.lang = nextRaw === "auto" ? pickLang("") : pickLang(nextRaw);
+      applyTexts();
+      if (state.report) {
+        renderFindings();
+        renderRuntime();
+      }
+      if (state.reports.length) {
+        listReports().catch(e => addLog("[error] " + e.message));
+      }
+      if (!state.settings) state.settings = {};
+      state.settings.language = nextRaw;
+      select.value = nextRaw;
+      syncEnhancedSelects();
+      flashNote(tr("languageApplied"));
+    }
+
+    function enhanceSelects() {
+      const optionLabel = (opt) => {
+        const label = String((opt && (opt.label || opt.textContent)) || "").trim();
+        if (label) return label;
+        const fallback = String((opt && opt.value) || "").trim();
+        return fallback || "-";
+      };
+
+      document.querySelectorAll("select").forEach((select) => {
+        if (select.dataset.uxEnhanced === "1") return;
+        select.dataset.uxEnhanced = "1";
+        select.classList.add("ux-native");
+
+        const shell = document.createElement("div");
+        shell.className = "select-shell";
+        select.parentNode.insertBefore(shell, select);
+        shell.appendChild(select);
+
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "select-trigger";
+        shell.appendChild(trigger);
+
+        const syncFromNative = () => {
+          const current = select.options[select.selectedIndex];
+          trigger.textContent = current ? optionLabel(current) : "-";
+        };
+
+        syncFromNative();
+        select.__uxSync = syncFromNative;
+
+        trigger.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const field = shell.closest(".field");
+          const title = field ? field.querySelector("label") : null;
+          showSelectDialog(select, title ? title.textContent.trim() : tr("pickerTitle"));
+        });
+
+        select.addEventListener("change", syncFromNative);
+        shell.addEventListener("click", (e) => e.stopPropagation());
+      });
+    }
+
+    function id() {
+      return "r-" + Math.random().toString(16).slice(2);
+    }
+
+    function post(cmd, payload = {}) {
+      const reqId = id();
+      const host = window.ipc && typeof window.ipc.postMessage === "function";
+      if (!host) return Promise.reject(new Error("IPC bridge is unavailable"));
+
+      const p = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          state.pending.delete(reqId);
+          reject(new Error("IPC timeout"));
+        }, 30000);
+        state.pending.set(reqId, { resolve, reject, timeout });
+      });
+
+      window.ipc.postMessage(JSON.stringify({ id: reqId, cmd, payload }));
+      return p;
+    }
+
+    function onHostMessage(envelope) {
+      if (!envelope || typeof envelope !== "object") return;
+
+      if (envelope.type === "response") {
+        const wait = state.pending.get(envelope.id);
+        if (!wait) return;
+        clearTimeout(wait.timeout);
+        state.pending.delete(envelope.id);
+        if (envelope.ok) wait.resolve(envelope.payload);
+        else wait.reject(new Error(envelope.error || "Unknown host error"));
+        return;
+      }
+
+      if (envelope.type === "event") {
+        if (envelope.event === "analysis-log") addLog(String(envelope.payload || ""));
+        if (envelope.event === "analysis-finished") {
+          endProgress();
+          document.getElementById("stRun").textContent = "analysis=idle";
+          document.getElementById("kStatus").textContent = tr("statusDone");
+          if (envelope.payload && envelope.payload.reportPath) {
+            document.getElementById("reportHint").textContent = envelope.payload.reportPath;
+            loadReport(envelope.payload.reportPath);
+          }
+          listReports();
+          flashNote(tr("analysisFinished"));
+        }
+      }
+    }
+
+    window.__METSUKI_HOST_DISPATCH = onHostMessage;
+
+    function flashNote(text) {
+      const div = document.createElement("div");
+      div.className = "float-note";
+      div.textContent = text;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 1300);
+    }
+
+    function addLog(line) {
+      if (!line) return;
+      state.logs.push(line);
+      if (state.logs.length > 1400) state.logs.splice(0, state.logs.length - 1400);
+      const live = document.getElementById("liveLog");
+      const details = document.getElementById("detailsBox");
+      live.textContent = state.logs.join("\n");
+      live.scrollTop = live.scrollHeight;
+      details.textContent = state.logs.slice(-120).join("\n");
+      details.scrollTop = details.scrollHeight;
+    }
+
+    function switchView(view) {
+      state.view = view;
+      document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+      const target = document.querySelector("#view-" + view);
+      if (target) {
+        Array.from(target.children).forEach((child, idx) => {
+          child.style.setProperty("--i", String(idx));
+        });
+        target.classList.remove("hidden");
+        target.classList.remove("view-enter");
+        requestAnimationFrame(() => target.classList.add("view-enter"));
+      }
+      const nav = Array.from(document.querySelectorAll(NAV_VIEW_SELECTOR));
+      nav.forEach((b, i) => {
+        b.classList.toggle("active", b.dataset.view === view);
+        if (b.dataset.view === view) {
+          document.getElementById("sidebar").style.setProperty("--nav-y", `${b.offsetTop}px`);
+        }
+      });
+      document.getElementById("viewTitle").textContent = tr(viewKey(view));
+    }
+
+    function animateKpis() {
+      document.querySelectorAll("#kpis .kpi").forEach((kpi) => {
+        kpi.classList.remove("flash");
+        requestAnimationFrame(() => kpi.classList.add("flash"));
+      });
+    }
+
+    function animateCount(el, to, suffix = "") {
+      const end = Number(to) || 0;
+      const start = Number((el.textContent || "").replace(/[^\d.-]/g, "")) || 0;
+      const delta = end - start;
+      if (Math.abs(delta) < 1) {
+        el.textContent = `${end}${suffix}`;
+        return;
+      }
+      const t0 = performance.now();
+      const dur = 210;
+      const tick = (t) => {
+        const p = Math.min(1, (t - t0) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const v = Math.round(start + delta * eased);
+        el.textContent = `${v}${suffix}`;
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function applyInfographics(m) {
+      const total = Math.max(1, m.pass + m.warn + m.fail);
+      const passPct = Math.round((m.pass / total) * 100);
+      const warnPct = Math.round((m.warn / total) * 100);
+      const failPct = Math.round((m.fail / total) * 100);
+
+      document.getElementById("infoPassBar").style.width = passPct + "%";
+      document.getElementById("infoWarnBar").style.width = warnPct + "%";
+      document.getElementById("infoFailBar").style.width = failPct + "%";
+      document.getElementById("infoStabilityBar").style.width = m.stability + "%";
+
+      animateCount(document.getElementById("infoPassPct"), passPct, "%");
+      animateCount(document.getElementById("infoWarnPct"), warnPct, "%");
+      animateCount(document.getElementById("infoFailPct"), failPct, "%");
+      animateCount(document.getElementById("infoStability"), m.stability, "%");
+    }
+
+    function formatSize(v) {
+      if (v < 1024) return v + " B";
+      if (v < 1024 * 1024) return (v / 1024).toFixed(1) + " KB";
+      return (v / (1024 * 1024)).toFixed(2) + " MB";
+    }
+
+    function percentile(values, p) {
+      if (!values.length) return 0;
+      const sorted = values.slice().sort((a, b) => a - b);
+      const idx = Math.max(0, Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1));
+      return sorted[idx] || 0;
+    }
+
+    function computeMetrics(report) {
+      const findings = report.findings || [];
+      const runtime = report.runtime || [];
+      let pass = 0;
+      let warn = 0;
+      let fail = 0;
+      for (const f of findings) {
+        if (f.severity === "PASS") pass++;
+        else if (f.severity === "WARN") warn++;
+        else if (f.severity === "FAIL") fail++;
+      }
+
+      const durations = runtime.map(r => Number(r.duration_ms || 0)).filter(v => Number.isFinite(v));
+      const total = runtime.length || 1;
+      const unstable = runtime.filter(r => r.timed_out || Number(r.exit_code) !== 0).length;
+      const flakiness = Math.round((unstable / total) * 100);
+      const stability = Math.max(0, 100 - flakiness);
+
+      return {
+        pass,
+        warn,
+        fail,
+        p50: Math.round(percentile(durations, 50)),
+        p95: Math.round(percentile(durations, 95)),
+        flakiness,
+        stability,
+        durations,
+        runtime
+      };
+    }
+
+    function cssVar(name, fallback) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    }
+
+    function drawSeverityDonut(metrics, progress = 1) {
+      const c = document.getElementById("severityCanvas");
+      const ctx = c.getContext("2d");
+      const w = c.width;
+      const h = c.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const total = Math.max(1, metrics.pass + metrics.warn + metrics.fail);
+      const vals = [
+        { v: metrics.pass, color: cssVar("--ok", "#4dbd7b"), label: "PASS" },
+        { v: metrics.warn, color: cssVar("--warn", "#dfac62"), label: "WARN" },
+        { v: metrics.fail, color: cssVar("--fail", "#de6f6f"), label: "FAIL" }
+      ];
+
+      const cx = 72;
+      const cy = 70;
+      const r = 46;
+      const ring = 12;
+      let a = -Math.PI / 2;
+      const ringProgress = Math.max(0, Math.min(1, progress));
+
+      vals.forEach((it) => {
+        const part = ((it.v / total) * Math.PI * 2) * ringProgress;
+        ctx.beginPath();
+        ctx.strokeStyle = it.color;
+        ctx.lineWidth = ring;
+        ctx.arc(cx, cy, r, a, a + part);
+        ctx.stroke();
+        a += part;
+      });
+
+      ctx.beginPath();
+      ctx.fillStyle = cssVar("--bg-ink", "#121212");
+      ctx.arc(cx, cy, r - ring, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = cssVar("--text", "#e7e7e7");
+      ctx.font = "700 17px Segoe UI";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.round(total * ringProgress)), cx, cy + 6);
+
+      ctx.textAlign = "left";
+      let y = 34;
+      vals.forEach((it) => {
+        ctx.fillStyle = it.color;
+        ctx.fillRect(150, y - 8, 11, 11);
+        ctx.fillStyle = cssVar("--muted", "#b0b0b0");
+        ctx.font = "12px Cascadia Code";
+        ctx.fillText(`${it.label}: ${Math.round(it.v * ringProgress)}`, 167, y + 1);
+        y += 24;
+      });
+    }
+
+    function drawRuntimeChart(metrics, progress = 1) {
+      const c = document.getElementById("runtimeCanvas");
+      const ctx = c.getContext("2d");
+      const accent = cssVar("--accent", "#ff6b2e");
+      const accent2 = cssVar("--accent-2", "#ff9d2e");
+      const w = c.width;
+      const h = c.height;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.fillStyle = cssVar("--bg-ink", "#121212");
+      ctx.fillRect(0, 0, w, h);
+
+      const values = metrics.durations;
+      if (!values.length) {
+        ctx.fillStyle = cssVar("--muted", "#a3a3a3");
+        ctx.font = "12px Cascadia Code";
+        ctx.fillText(tr("noRuntimeData"), 12, 20);
+        return;
+      }
+
+      const pad = { l: 28, r: 10, t: 10, b: 20 };
+      const chartW = w - pad.l - pad.r;
+      const chartH = h - pad.t - pad.b;
+      const maxV = Math.max(1, Math.max(...values));
+      const p50 = metrics.p50;
+      const p95 = metrics.p95;
+      const drawProgress = Math.max(0, Math.min(1, progress));
+
+      ctx.strokeStyle = cssVar("--line-soft", "#2a2a2a");
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (chartH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(w - pad.r, y);
+        ctx.stroke();
+      }
+
+      const step = values.length > 1 ? chartW / (values.length - 1) : chartW;
+      const linePoints = [];
+      ctx.beginPath();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2;
+      const visibleIndex = drawProgress * (values.length - 1);
+      const lastFull = Math.floor(visibleIndex);
+      values.forEach((v, i) => {
+        if (i > lastFull + 1) return;
+        const x = pad.l + i * step;
+        const y = pad.t + chartH - (v / maxV) * chartH;
+        linePoints.push({ x, y, v });
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      if (lastFull + 1 < values.length) {
+        const i0 = Math.max(0, lastFull);
+        const i1 = Math.min(values.length - 1, lastFull + 1);
+        if (i1 !== i0) {
+          const t = visibleIndex - i0;
+          const x0 = pad.l + i0 * step;
+          const y0 = pad.t + chartH - (values[i0] / maxV) * chartH;
+          const x1 = pad.l + i1 * step;
+          const y1 = pad.t + chartH - (values[i1] / maxV) * chartH;
+          const px = x0 + (x1 - x0) * t;
+          const py = y0 + (y1 - y0) * t;
+          ctx.lineTo(px, py);
+          linePoints.push({ x: px, y: py, v: values[i0] + (values[i1] - values[i0]) * t });
+        }
+      }
+
+      if (linePoints.length > 1) {
+        const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + chartH);
+        grad.addColorStop(0, cssVar("--accent-glow", "rgba(255, 107, 46, 0.24)"));
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.save();
+        ctx.globalAlpha = 0.48;
+        ctx.beginPath();
+        ctx.moveTo(linePoints[0].x, pad.t + chartH);
+        linePoints.forEach((p) => ctx.lineTo(p.x, p.y));
+        const last = linePoints[linePoints.length - 1];
+        ctx.lineTo(last.x, pad.t + chartH);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.stroke();
+
+      if (linePoints.length > 0) {
+        const tail = linePoints[linePoints.length - 1];
+        ctx.beginPath();
+        ctx.fillStyle = accent2;
+        ctx.arc(tail.x, tail.y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.globalAlpha = 0.35 + drawProgress * 0.25;
+        ctx.arc(tail.x, tail.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      const drawThreshold = (val, color, label) => {
+        const y = pad.t + chartH - (val / maxV) * chartH;
+        ctx.strokeStyle = color;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(w - pad.r, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = drawProgress;
+        ctx.font = "11px Cascadia Code";
+        ctx.fillText(`${label}: ${val}ms`, pad.l + 6, y - 4);
+        ctx.globalAlpha = 1;
+      };
+
+      drawThreshold(p50, accent2, "p50");
+      drawThreshold(p95, cssVar("--fail", "#de6f6f"), "p95");
+
+      ctx.fillStyle = cssVar("--muted", "#a3a3a3");
+      ctx.font = "11px Cascadia Code";
+      ctx.fillText(`max=${maxV}ms`, w - 95, 14);
+    }
+
+    function animateCharts(metrics) {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        drawSeverityDonut(metrics, 1);
+        drawRuntimeChart(metrics, 1);
+        return;
+      }
+      const started = performance.now();
+      const dur = 520;
+      const tick = (now) => {
+        const p = Math.min(1, (now - started) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        drawSeverityDonut(metrics, eased);
+        drawRuntimeChart(metrics, eased);
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function applyMetrics(report) {
+      const m = computeMetrics(report);
+      animateCount(document.getElementById("kWarn"), m.warn);
+      animateCount(document.getElementById("kFail"), m.fail);
+      animateCount(document.getElementById("kP50"), m.p50);
+      animateCount(document.getElementById("kP95"), m.p95);
+
+      document.getElementById("dStatus").textContent = report.final_status || "-";
+      document.getElementById("dFindings").textContent = String((report.findings || []).length);
+      document.getElementById("dRuntime").textContent = String((report.runtime || []).length);
+      document.getElementById("dFlakiness").textContent = `${m.flakiness}%`;
+      document.getElementById("dStability").textContent = `${m.stability}%`;
+
+      animateCharts(m);
+      applyInfographics(m);
+      animateKpis();
+    }
+
+    function applySettingsToUi(s) {
+      document.getElementById("langSelect").value = s.language || "auto";
+      document.getElementById("accentSelect").value = (s.theme || "AMETHYST").toUpperCase();
+      document.getElementById("defaultModeSelect").value = s.default_mode || "MIN";
+      document.getElementById("settingsOutDir").value = s.out_dir || "logs";
+      document.getElementById("outDirInput").value = s.out_dir || "logs";
+      document.getElementById("modeSelect").value = s.default_mode || "MIN";
+      document.getElementById("vsdbgPath").value = s.vsdbg_path || "";
+      document.getElementById("linterPaths").value = (s.linter_paths || []).join(",");
+
+      applyTheme(s.theme || "AMETHYST");
+      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + (s.default_mode || "MIN");
+      document.getElementById("stMode").textContent = "mode=" + (s.default_mode || "MIN");
+      document.getElementById("vsdbgStatus").textContent = s.vsdbg_path ? tr("configured") : tr("notConfigured");
+      document.getElementById("lintersStatus").textContent = (s.linter_paths || []).length ? tr("configured") : tr("notConfigured");
+
+      const selected = (s.language || "auto").toLowerCase();
+      state.lang = selected === "auto" ? pickLang("") : pickLang(selected);
+      applyTexts();
+      syncEnhancedSelects();
+    }
+
+    async function loadSettings() {
+      const s = await post("load_settings", {});
+      state.settings = s;
+      applySettingsToUi(s);
+      switchView(state.view);
+    }
+
+    async function saveSettings() {
+      const settings = {
+        language: document.getElementById("langSelect").value,
+        theme: document.getElementById("accentSelect").value,
+        default_mode: document.getElementById("defaultModeSelect").value,
+        out_dir: document.getElementById("settingsOutDir").value || "logs",
+        analyzer_path: null,
+        vsdbg_path: document.getElementById("vsdbgPath").value || null,
+        linter_paths: (document.getElementById("linterPaths").value || "").split(",").map(v => v.trim()).filter(Boolean)
+      };
+      await post("save_settings", settings);
+      state.settings = settings;
+      applySettingsToUi(settings);
+      addLog("[ui] settings saved");
+      flashNote(tr("settingsSaved"));
+    }
+
+    async function listReports() {
+      const outDir = document.getElementById("outDirInput").value || "logs";
+      const rows = await post("list_reports", { out_dir: outDir });
+      state.reports = rows || [];
+      const tbody = document.querySelector("#reportsTable tbody");
+      tbody.innerHTML = "";
+      for (const r of state.reports) {
+        const row = document.createElement("tr");
+        const date = new Date((r.modified_unix || 0) * 1000).toLocaleString();
+        row.innerHTML = `<td>${date}</td><td>${formatSize(r.size_bytes || 0)}</td><td>${r.path}</td><td><button class="btn" data-open="${r.path}">${tr("btnOpen")}</button></td>`;
+        tbody.appendChild(row);
+      }
+      tbody.querySelectorAll("button[data-open]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const path = btn.getAttribute("data-open");
+          await loadReport(path);
+          switchView("findings");
+        });
+      });
+    }
+
+    function addFindingRow(tbody, f) {
+      const tr = document.createElement("tr");
+      const sevClass = f.severity === "PASS" ? "sev-pass" : f.severity === "WARN" ? "sev-warn" : "sev-fail";
+      tr.innerHTML = `<td class="${sevClass}">${f.severity || "-"}</td><td class="mono">${f.code || "-"}</td><td>${f.category || "-"}</td><td>${f.points || 0}</td><td>${f.message || ""}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    function renderFindings() {
+      const tbody = document.querySelector("#findingsTable tbody");
+      tbody.innerHTML = "";
+      const source = (state.report && state.report.findings) || [];
+      const needle = (document.getElementById("findingSearch").value || "").toLowerCase();
+      const sevFilter = document.getElementById("severityFilter").value;
+      const groupFilter = document.getElementById("groupFilter").value;
+
+      const filtered = source.filter(f => {
+        const keepSev = sevFilter === "ALL" || f.severity === sevFilter;
+        const text = `${f.code} ${f.category} ${f.message}`.toLowerCase();
+        return keepSev && (!needle || text.includes(needle));
+      });
+
+      if (groupFilter !== "none") {
+        const map = new Map();
+        for (const f of filtered) {
+          const key = f[groupFilter] || "other";
+          if (!map.has(key)) map.set(key, []);
+          map.get(key).push(f);
+        }
+        for (const [group, items] of map.entries()) {
+          const head = document.createElement("tr");
+          head.innerHTML = `<td colspan="5" class="mono muted">${String(group).toUpperCase()} (${items.length})</td>`;
+          tbody.appendChild(head);
+          for (const f of items) addFindingRow(tbody, f);
+        }
+      } else {
+        filtered.forEach(f => addFindingRow(tbody, f));
+      }
+    }
+
+    function renderRuntime() {
+      const tbody = document.querySelector("#runtimeTable tbody");
+      tbody.innerHTML = "";
+      const runtime = (state.report && state.report.runtime) || [];
+      for (const r of runtime) {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${r.scenario || "-"}</td><td>${r.exit_code}</td><td>${r.timed_out ? tr("yes") : tr("no")}</td><td>${r.duration_ms || 0}</td><td>${r.stdout_len || 0}</td><td>${r.stderr_len || 0}</td>`;
+        row.addEventListener("click", () => {
+          state.selectedScenario = r.scenario || null;
+          document.getElementById("detailsMeta").textContent = tr("scenarioPrefix") + (state.selectedScenario || "-");
+          document.getElementById("dScenario").textContent = state.selectedScenario || "-";
+        });
+        tbody.appendChild(row);
+      }
+    }
+
+    async function loadReport(path) {
+      const data = await post("open_report", { path });
+      state.report = data;
+      document.getElementById("reportHint").textContent = path;
+      document.getElementById("kStatus").textContent = data.final_status || "-";
+      document.getElementById("kScore").textContent = String(data.score || 0);
+      document.getElementById("stVersion").textContent = "schema=" + (data.schema_version || "v1");
+      applyMetrics(data);
+      renderFindings();
+      renderRuntime();
+    }
+
+    function startProgress() {
+      state.runStart = Date.now();
+      if (state.progressTick) clearInterval(state.progressTick);
+      state.progressTick = setInterval(() => {
+        const elapsed = (Date.now() - state.runStart) / 1000;
+        const runs = Number(document.getElementById("runsInput").value || "6");
+        const timeout = Number(document.getElementById("timeoutInput").value || "4");
+        const expected = Math.max(1, runs * timeout);
+        const p = Math.min(96, Math.round((elapsed / expected) * 100));
+        document.getElementById("runProgress").style.width = p + "%";
+      }, 250);
+    }
+
+    function endProgress() {
+      if (state.progressTick) {
+        clearInterval(state.progressTick);
+        state.progressTick = null;
+      }
+      document.getElementById("runProgress").style.width = "100%";
+      setTimeout(() => {
+        document.getElementById("runProgress").style.width = "0%";
+      }, 600);
+    }
+
+    async function runAnalysis() {
+      const payload = {
+        target_path: document.getElementById("targetPath").value,
+        mode: document.getElementById("modeSelect").value,
+        runs: Number(document.getElementById("runsInput").value || "6"),
+        timeout_secs: Number(document.getElementById("timeoutInput").value || "4"),
+        out_dir: document.getElementById("outDirInput").value || "logs",
+        confirm_pentest: document.getElementById("confirmPentest").checked
+      };
+
+      state.logs.length = 0;
+      addLog("[ui] starting analysis...");
+      document.getElementById("kStatus").textContent = tr("statusRunning");
+      document.getElementById("stRun").textContent = "analysis=running";
+      startProgress();
+      await post("run_analysis", payload);
+    }
+
+    async function stopAnalysis() {
+      await post("stop_analysis", {});
+      document.getElementById("stRun").textContent = "analysis=stop-requested";
+      flashNote(tr("stopRequested"));
+    }
+
+    async function checkTools() {
+      const payload = await post("tools_status", {});
+      document.getElementById("vsdbgStatus").textContent = localizeToolStatus(payload.vsdbg || "unknown");
+      document.getElementById("lintersStatus").textContent = localizeToolStatus(payload.linters || "unknown");
+    }
+
+    async function createBundle() {
+      const reportPath = document.getElementById("reportHint").textContent;
+      if (!reportPath || reportPath === tr("noReport")) {
+        addLog("[ui] " + tr("noReportForBundle"));
+        return;
+      }
+      const payload = await post("create_repro_bundle", {
+        report_path: reportPath,
+        target_path: document.getElementById("targetPath").value,
+        mode: document.getElementById("modeSelect").value
+      });
+      addLog("[bundle] " + payload.path);
+      flashNote(tr("bundleCreated"));
+    }
+
+    async function rerunScenario() {
+      if (!state.selectedScenario) {
+        addLog("[ui] " + tr("selectScenarioFirst"));
+        return;
+      }
+      await post("rerun_scenario", {
+        scenario: state.selectedScenario,
+        target_path: document.getElementById("targetPath").value,
+        mode: document.getElementById("modeSelect").value
+      });
+      addLog("[runtime] rerun requested: " + state.selectedScenario);
+    }
+
+    function bind() {
+      document.querySelectorAll(NAV_VIEW_SELECTOR).forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.view)));
+      const supportBtn = document.getElementById("btnSupport");
+      if (supportBtn) {
+        supportBtn.addEventListener("click", (e) => {
+          if (window.ipc && typeof window.ipc.postMessage === "function") {
+            e.preventDefault();
+            post("open_path", { path: supportBtn.href }).catch(err => addLog("[error] " + err.message));
+          }
+        });
+      }
+      document.getElementById("btnPickTarget").addEventListener("click", async () => {
+        try {
+          const payload = await post("pick_target", {});
+          if (payload && payload.path) {
+            document.getElementById("targetPath").value = payload.path;
+          }
+        } catch (e) {
+          addLog("[error] " + e.message);
+        }
+      });
+      document.getElementById("btnRun").addEventListener("click", () => runAnalysis().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnStop").addEventListener("click", () => stopAnalysis().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnRefreshReports").addEventListener("click", () => listReports().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnListReports").addEventListener("click", () => listReports().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnOpenReportsDir").addEventListener("click", () => post("open_path", { path: document.getElementById("outDirInput").value || "logs" }).catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnSaveSettings").addEventListener("click", () => saveSettings().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnLoadSettings").addEventListener("click", () => loadSettings().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnCheckTools").addEventListener("click", () => checkTools().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnOpenVsdbgPath").addEventListener("click", () => post("open_path", { path: document.getElementById("vsdbgPath").value || "" }).catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnCreateBundle").addEventListener("click", () => createBundle().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnRerunScenario").addEventListener("click", () => rerunScenario().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("findingSearch").addEventListener("input", renderFindings);
+      document.getElementById("severityFilter").addEventListener("change", renderFindings);
+      document.getElementById("groupFilter").addEventListener("change", renderFindings);
+      document.getElementById("langSelect").addEventListener("change", (e) => {
+        previewLanguageChange(e.target.value);
+      });
+      document.getElementById("accentSelect").addEventListener("change", (e) => {
+        previewThemeChange(e.target.value);
+      });
+
+      window.addEventListener("resize", () => {
+        if (state.report) applyMetrics(state.report);
+        const active = document.querySelector(".nav-btn.active");
+        if (active) {
+          document.getElementById("sidebar").style.setProperty("--nav-y", `${active.offsetTop}px`);
+        }
+      });
+    }
+
+    async function bootstrap() {
+      enhanceSelects();
+      initHeroParticles();
+      bind();
+      await loadSettings();
+      await listReports();
+      switchView("home");
+      addLog("[ui] web frontend ready");
+      drawSeverityDonut({ pass: 0, warn: 0, fail: 0 });
+      drawRuntimeChart({ durations: [], p50: 0, p95: 0 });
+      document.getElementById("appRoot").classList.add("ready");
+      const splash = document.getElementById("splash");
+      splash.classList.add("hide");
+      setTimeout(() => splash.remove(), 420);
+    }
+
+    bootstrap().catch(err => {
+      document.getElementById("appRoot").classList.add("ready");
+      const splash = document.getElementById("splash");
+      if (splash) {
+        splash.classList.add("hide");
+        setTimeout(() => splash.remove(), 420);
+      }
+      document.getElementById("liveLog").textContent = "Bootstrap failed: " + err.message;
+    });
+  </script>
+</body>
+</html>
