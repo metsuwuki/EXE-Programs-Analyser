@@ -4,6 +4,7 @@
 # Project artifacts
 /dist/
 /logs/
+/Auto Setup/
 
 # Runtime WebView caches (can appear in local runs)
 *.WebView2/
