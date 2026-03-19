@@ -11,10 +11,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 mod runtime_checks;
 mod preflight;
-<<<<<<< HEAD
-=======
 mod security_lab;
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 
 #[derive(Debug, Clone)]
 struct Config {
@@ -25,11 +22,6 @@ struct Config {
     analysis_mode: AnalysisMode,
     mode: ScanMode,
     fuzz_engine: FuzzEngine,
-<<<<<<< HEAD
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-=======
     security_lab_enabled: bool,
     lab_profile: SecurityLabProfile,
     custom_modules: Vec<String>,
@@ -53,7 +45,6 @@ impl SecurityLabProfile {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 enum FuzzEngine {
     Native,
     LibAfl,
@@ -250,19 +241,13 @@ fn run(config: Config) {
     println!("Target: {}", config.exe_path.display());
     println!("TargetType: {}", target_kind.as_str());
     println!(
-<<<<<<< HEAD
-        "Mode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
-=======
         "AnalysisMode: {} | VerdictMode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
         config.analysis_mode.as_str(),
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
         config.mode.as_str(),
         config.timeout_secs,
         config.runs,
         config.out_dir.display(),
         config.fuzz_engine.as_str()
-<<<<<<< HEAD
-=======
     );
     println!(
         "SecurityLab: {} | Profile: {} | CustomModules: {} | ConfirmExtended: {}",
@@ -278,7 +263,6 @@ fn run(config: Config) {
             config.custom_modules.join(",")
         },
         config.confirm_extended_tests
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     );
     println!();
     println!("[PHASE 1/4] static analysis");
@@ -342,10 +326,6 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
     let mut timeout_secs: u64 = 4;
     let mut runs: u32 = 6;
     let mut out_dir = PathBuf::from("logs");
-<<<<<<< HEAD
-    let mut mode = ScanMode::Strict;
-    let mut fuzz_engine = FuzzEngine::Native;
-=======
     let mut analysis_mode = AnalysisMode::Min;
     let mut mode = ScanMode::Balanced;
     let mut fuzz_engine = FuzzEngine::Native;
@@ -354,7 +334,6 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
     let mut custom_modules = Vec::new();
     let mut confirm_extended_tests = false;
     let mut list_lab_modules = false;
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 
     let mut i = 2;
     while i < args.len() {
@@ -396,8 +375,6 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
             "--balanced" => {
                 mode = ScanMode::Balanced;
             }
-<<<<<<< HEAD
-=======
             "--mode-min" => {
                 analysis_mode = AnalysisMode::Min;
                 mode = ScanMode::Balanced;
@@ -427,7 +404,6 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
                     _ => return Err("--mode must be 'min' or 'pentest'".to_string()),
                 }
             }
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
             "--fuzz-engine" => {
                 i += 1;
                 if i >= args.len() {
@@ -439,8 +415,6 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
                     _ => return Err("--fuzz-engine must be 'native' or 'libafl'".to_string()),
                 };
             }
-<<<<<<< HEAD
-=======
             "--lab-profile" => {
                 i += 1;
                 if i >= args.len() {
@@ -475,7 +449,6 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
                     return Err("--modules requires at least one module id".to_string());
                 }
             }
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
             other => return Err(format!("Unknown argument: {}", other)),
         }
         i += 1;
@@ -493,14 +466,11 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
         analysis_mode,
         mode,
         fuzz_engine,
-<<<<<<< HEAD
-=======
         security_lab_enabled,
         lab_profile,
         custom_modules,
         confirm_extended_tests,
         list_lab_modules,
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     })
 }
 

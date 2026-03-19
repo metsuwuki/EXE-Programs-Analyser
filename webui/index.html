@@ -39,11 +39,59 @@
       --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
+    html[data-theme="LIGHT"] {
+      --bg: #f4f6fb;
+      --bg-elev: #edf0f7;
+      --bg-elev-2: #e4e9f3;
+      --bg-ink: #dce2ef;
+      --line: #b3c0d6;
+      --line-soft: #c8d1e1;
+      --text: #1b2638;
+      --muted: #4d607b;
+      --shadow: 0 16px 34px rgba(36, 59, 95, 0.17);
+      --glow: 0 0 0 1px rgba(54, 77, 112, 0.08), 0 12px 28px rgba(42, 64, 98, 0.18);
+    }
+
+    html[data-accent="CHERRY"] {
+      --accent: #d53a47;
+      --accent-2: #f06a7a;
+      --accent-soft: #f795a0;
+      --accent-glow: rgba(213, 58, 71, 0.34);
+    }
+
     html[data-accent="LAVA"] {
       --accent: #ff6b2e;
       --accent-2: #ff9d2e;
       --accent-soft: #ff8a57;
       --accent-glow: rgba(255, 107, 46, 0.34);
+    }
+
+    html[data-accent="GOLD"] {
+      --accent: #d6a83d;
+      --accent-2: #f0cb73;
+      --accent-soft: #f3d48e;
+      --accent-glow: rgba(214, 168, 61, 0.34);
+    }
+
+    html[data-accent="EMERALD"] {
+      --accent: #2db873;
+      --accent-2: #49d68d;
+      --accent-soft: #7ee8ae;
+      --accent-glow: rgba(45, 184, 115, 0.34);
+    }
+
+    html[data-accent="SEA"] {
+      --accent: #29bfb0;
+      --accent-2: #63e5d8;
+      --accent-soft: #8ef0e6;
+      --accent-glow: rgba(41, 191, 176, 0.34);
+    }
+
+    html[data-accent="SAPPHIRE"] {
+      --accent: #2f74de;
+      --accent-2: #58a1ff;
+      --accent-soft: #87bcff;
+      --accent-glow: rgba(47, 116, 222, 0.34);
     }
 
     html[data-accent="AMETHYST"] {
@@ -53,33 +101,23 @@
       --accent-glow: rgba(143, 77, 255, 0.34);
     }
 
-    html[data-accent="LIME"] {
-      --accent: #9be23a;
-      --accent-2: #58d65c;
-      --accent-soft: #b8f26f;
-      --accent-glow: rgba(155, 226, 58, 0.34);
+    html[data-accent="QUARTZ"] {
+      --accent: #d16eb3;
+      --accent-2: #f38bcf;
+      --accent-soft: #f9addd;
+      --accent-glow: rgba(209, 110, 179, 0.34);
     }
 
-    html[data-accent="CYAN"] {
-      --accent: #35c7f2;
-      --accent-2: #6be3ff;
-      --accent-soft: #7fdfff;
-      --accent-glow: rgba(53, 199, 242, 0.34);
+    html[data-accent="ASH"] {
+      --accent: #e6edf7;
+      --accent-2: #f8fbff;
+      --accent-soft: #ffffff;
+      --accent-glow: rgba(230, 237, 247, 0.46);
     }
 
-    html[data-accent="CRIMSON"] {
-      --accent: #e25a71;
-      --accent-2: #ff7d92;
-      --accent-soft: #ff93a2;
-      --accent-glow: rgba(226, 90, 113, 0.34);
-    }
-
-    html[data-accent="GOLD"] {
-      --accent: #d6a83d;
-      --accent-2: #f0cb73;
-      --accent-soft: #f3d48e;
-      --accent-glow: rgba(214, 168, 61, 0.34);
-    }
+    html[data-accent="LIME"] { --accent: #2db873; --accent-2: #49d68d; --accent-soft: #7ee8ae; --accent-glow: rgba(45, 184, 115, 0.34); }
+    html[data-accent="CYAN"] { --accent: #29bfb0; --accent-2: #63e5d8; --accent-soft: #8ef0e6; --accent-glow: rgba(41, 191, 176, 0.34); }
+    html[data-accent="CRIMSON"] { --accent: #d53a47; --accent-2: #f06a7a; --accent-soft: #f795a0; --accent-glow: rgba(213, 58, 71, 0.34); }
 
     * { box-sizing: border-box; }
 
@@ -140,6 +178,87 @@
       opacity: 0.5;
     }
 
+    body::after {
+      content: "";
+      position: fixed;
+      inset: -16%;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.2;
+      background:
+        radial-gradient(34% 30% at 18% 22%, color-mix(in oklab, var(--accent) 40%, transparent) 0%, transparent 72%),
+        radial-gradient(28% 26% at 82% 18%, color-mix(in oklab, var(--accent-2) 34%, transparent) 0%, transparent 74%);
+      animation: accentDrift 15s ease-in-out infinite;
+      mix-blend-mode: screen;
+    }
+
+    html[data-theme="LIGHT"] body::after {
+      mix-blend-mode: multiply;
+      opacity: 0.14;
+    }
+
+    html[data-accent="CHERRY"] body::after { animation-name: accentCherry; animation-duration: 12s; }
+    html[data-accent="LAVA"] body::after { animation-name: accentLava; animation-duration: 10s; }
+    html[data-accent="GOLD"] body::after { animation-name: accentGold; animation-duration: 16s; }
+    html[data-accent="EMERALD"] body::after { animation-name: accentEmerald; animation-duration: 13s; }
+    html[data-accent="SEA"] body::after { animation-name: accentSea; animation-duration: 14s; }
+    html[data-accent="SAPPHIRE"] body::after { animation-name: accentSapphire; animation-duration: 15s; }
+    html[data-accent="AMETHYST"] body::after { animation-name: accentAmethyst; animation-duration: 13s; }
+    html[data-accent="QUARTZ"] body::after { animation-name: accentQuartz; animation-duration: 11s; }
+    html[data-accent="ASH"] body::after { animation-name: accentAsh; animation-duration: 18s; }
+
+    @keyframes accentDrift {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(0, -10px, 0) scale(1.02); }
+    }
+
+    @keyframes accentCherry {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.22; }
+      50% { transform: translate3d(0, -14px, 0) scale(1.04); opacity: 0.3; }
+    }
+
+    @keyframes accentLava {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      40% { transform: translate3d(0, -8px, 0) scale(1.05); }
+      70% { transform: translate3d(0, 6px, 0) scale(1.03); }
+    }
+
+    @keyframes accentGold {
+      0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.16; }
+      50% { transform: rotate(2deg) scale(1.03); opacity: 0.24; }
+    }
+
+    @keyframes accentEmerald {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(10px, -8px, 0) scale(1.04); }
+    }
+
+    @keyframes accentSea {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      33% { transform: translate3d(-10px, 4px, 0); }
+      66% { transform: translate3d(10px, -4px, 0); }
+    }
+
+    @keyframes accentSapphire {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(0, -12px, 0) scale(1.02); }
+    }
+
+    @keyframes accentAmethyst {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(-2deg) scale(1.05); }
+    }
+
+    @keyframes accentQuartz {
+      0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.18; }
+      50% { transform: translate3d(-8px, -10px, 0) scale(1.05); opacity: 0.26; }
+    }
+
+    @keyframes accentAsh {
+      0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.12; }
+      50% { transform: translate3d(0, -6px, 0); opacity: 0.2; }
+    }
+
     .app {
       width: 100%;
       height: 100%;
@@ -186,6 +305,162 @@
       background: rgba(28, 28, 28, 0.86);
       box-shadow: 0 20px 42px rgba(0, 0, 0, 0.45);
       animation: appIn 420ms var(--ease-smooth);
+    }
+
+    html[data-theme="LIGHT"] .splash {
+      background:
+        radial-gradient(520px 240px at 30% 8%, color-mix(in oklab, var(--accent) 24%, transparent), transparent 72%),
+        radial-gradient(620px 280px at 72% 8%, color-mix(in oklab, var(--accent-2) 20%, transparent), transparent 72%),
+        linear-gradient(180deg, #f4f7fd, #e8eef7 55%, #dde6f2);
+    }
+
+    html[data-theme="LIGHT"] .splash-core {
+      border-color: color-mix(in oklab, var(--accent) 34%, #9eb1cf);
+      background: rgba(242, 246, 252, 0.9);
+      box-shadow: 0 16px 30px rgba(43, 63, 96, 0.22);
+    }
+
+    html[data-theme="LIGHT"] .splash-title {
+      color: #243149;
+    }
+
+    html[data-theme="LIGHT"] .splash-sub {
+      color: #5b6f8e;
+    }
+
+    html[data-theme="LIGHT"] .sidebar,
+    html[data-theme="LIGHT"] .topbar,
+    html[data-theme="LIGHT"] .panel,
+    html[data-theme="LIGHT"] .panel-head {
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--accent) 24%, var(--line));
+      box-shadow: 0 12px 26px rgba(62, 85, 122, 0.14);
+    }
+
+    html[data-theme="LIGHT"] .sidebar {
+      background:
+        linear-gradient(180deg, #f1f4fb 0%, #e8edf8 100%),
+        radial-gradient(130% 90% at -20% 0%, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%);
+    }
+
+    html[data-theme="LIGHT"] .topbar {
+      background:
+        linear-gradient(180deg, rgba(246, 249, 254, 0.95) 0%, rgba(238, 244, 252, 0.95) 100%),
+        radial-gradient(120% 100% at 10% -40%, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 72%);
+    }
+
+    html[data-theme="LIGHT"] .panel {
+      background:
+        linear-gradient(180deg, #f6f9ff 0%, #edf2fb 100%),
+        radial-gradient(120% 100% at 0% -30%, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 72%);
+    }
+
+    html[data-theme="LIGHT"] .panel-head {
+      background:
+        linear-gradient(180deg, #eff4fb 0%, #e8eef8 100%),
+        radial-gradient(140% 90% at -10% -80%, color-mix(in oklab, var(--accent-2) 10%, transparent) 0%, transparent 74%);
+      color: #4f6381;
+    }
+
+    html[data-theme="LIGHT"] .nav-btn,
+    html[data-theme="LIGHT"] .meta-pill,
+    html[data-theme="LIGHT"] .btn,
+    html[data-theme="LIGHT"] input[type="text"],
+    html[data-theme="LIGHT"] input[type="number"],
+    html[data-theme="LIGHT"] .select-trigger,
+    html[data-theme="LIGHT"] .command,
+    html[data-theme="LIGHT"] .log-box,
+    html[data-theme="LIGHT"] .table thead th,
+    html[data-theme="LIGHT"] .table tbody tr:nth-child(odd),
+    html[data-theme="LIGHT"] .info-card,
+    html[data-theme="LIGHT"] .kpi,
+    html[data-theme="LIGHT"] .viz-box,
+    html[data-theme="LIGHT"] .confirm-check {
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--accent) 22%, var(--line));
+    }
+
+    html[data-theme="LIGHT"] .nav-btn,
+    html[data-theme="LIGHT"] .meta-pill,
+    html[data-theme="LIGHT"] .btn,
+    html[data-theme="LIGHT"] input[type="text"],
+    html[data-theme="LIGHT"] input[type="number"],
+    html[data-theme="LIGHT"] .select-trigger,
+    html[data-theme="LIGHT"] .command,
+    html[data-theme="LIGHT"] .confirm-check {
+      background: linear-gradient(180deg, color-mix(in oklab, #f6f9ff 92%, var(--accent) 8%), color-mix(in oklab, #e8eef8 90%, var(--accent) 10%));
+    }
+
+    html[data-theme="LIGHT"] .table thead th,
+    html[data-theme="LIGHT"] .table tbody tr:nth-child(odd),
+    html[data-theme="LIGHT"] .info-card,
+    html[data-theme="LIGHT"] .kpi,
+    html[data-theme="LIGHT"] .viz-box,
+    html[data-theme="LIGHT"] .log-box {
+      background: linear-gradient(180deg, color-mix(in oklab, #f6f9ff 88%, var(--accent) 12%), color-mix(in oklab, #ebf1fb 90%, var(--accent) 10%));
+    }
+
+    html[data-theme="LIGHT"] .top-title,
+    html[data-theme="LIGHT"] .hero-title,
+    html[data-theme="LIGHT"] .hero-stat-k,
+    html[data-theme="LIGHT"] .info-val,
+    html[data-theme="LIGHT"] .apply-pop-text,
+    html[data-theme="LIGHT"] .picker-v,
+    html[data-theme="LIGHT"] .table td,
+    html[data-theme="LIGHT"] .statusbar,
+    html[data-theme="LIGHT"] .log-box,
+    html[data-theme="LIGHT"] .btn,
+    html[data-theme="LIGHT"] .meta-pill,
+    html[data-theme="LIGHT"] .nav-btn {
+      color: #20304a;
+      text-shadow: none;
+    }
+
+    html[data-theme="LIGHT"] .top-sub,
+    html[data-theme="LIGHT"] .hero-sub,
+    html[data-theme="LIGHT"] .panel-head,
+    html[data-theme="LIGHT"] .picker-sub,
+    html[data-theme="LIGHT"] .muted,
+    html[data-theme="LIGHT"] .field label,
+    html[data-theme="LIGHT"] .confirm-check-text {
+      color: #48607f;
+    }
+
+    html[data-theme="LIGHT"] .picker-item {
+      color: #2f4463;
+    }
+
+    html[data-theme="LIGHT"] .picker-item:hover {
+      color: #1f3048;
+      background: color-mix(in oklab, #dfe9f8 72%, var(--accent) 28%);
+    }
+
+    html[data-theme="LIGHT"] .picker-item.is-active {
+      color: #16263d;
+      background: linear-gradient(160deg, color-mix(in oklab, #d8e5f8 72%, var(--accent) 28%), color-mix(in oklab, #cfdff5 72%, var(--accent-2) 28%));
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 56%, #8ea4c9);
+    }
+
+    html[data-theme="LIGHT"] .table thead th {
+      color: #2f4566;
+    }
+
+    html[data-theme="LIGHT"] .hero-title-accent {
+      background: linear-gradient(120deg, color-mix(in oklab, var(--accent) 62%, #1f2f48), color-mix(in oklab, var(--accent-2) 62%, #1f2f48));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    html[data-theme="LIGHT"] .statusbar {
+      border-top-color: color-mix(in oklab, var(--accent) 28%, #a3b4ce);
+      background: linear-gradient(180deg, color-mix(in oklab, #edf3fb 82%, var(--accent) 18%) 0%, color-mix(in oklab, #dfe8f5 84%, var(--accent) 16%) 100%);
+    }
+
+    html[data-theme="LIGHT"] .support-btn,
+    html[data-theme="LIGHT"] .btn.primary,
+    html[data-theme="LIGHT"] .btn.warn {
+      color: #fffaf4;
     }
 
     .splash-logo {
@@ -796,6 +1071,21 @@
       box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 66%, #4f4f4f);
     }
 
+    .picker-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .picker-swatch {
+      width: 22px;
+      height: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      flex-shrink: 0;
+    }
+
     .picker-side {
       padding: 12px;
       display: grid;
@@ -818,6 +1108,14 @@
       font: 12px/1.2 var(--mono);
       color: #ececec;
       word-break: break-word;
+    }
+
+    .picker-preview {
+      height: 64px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--line));
+      background: linear-gradient(120deg, color-mix(in oklab, var(--accent) 72%, #2a2a2a), color-mix(in oklab, var(--accent-2) 72%, #222));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
     }
 
     .picker-foot {
@@ -1783,7 +2081,6 @@
 <body>
   <div id="splash" class="splash">
     <div class="splash-core">
-      <img class="splash-logo" src="..\\assets\\logo.png" alt="Metsuki logo" />
       <h1 class="splash-title">Metsuki Workbench</h1>
       <div class="splash-sub" id="splashSub">Loading interface, charts and runtime pipeline...</div>
       <div class="splash-progress"><i></i></div>
@@ -1794,7 +2091,6 @@
     <aside class="sidebar" id="sidebar">
       <button class="nav-btn active" data-view="home" title="Home"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 4.6L4.5 10.6V20h5.4v-4.8h4.2V20h5.4v-9.4z"/></svg></span><span id="navHome" class="nav-label">Home</span></button>
       <button class="nav-btn" data-view="reports" title="Reports"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M6 4h12a2 2 0 0 1 2 2v12.2a1.8 1.8 0 0 1-1.8 1.8H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v1.8h8V8zm0 4v1.8h8V12zm0 4v1.8h5.4V16z"/></svg></span><span id="navReports" class="nav-label">Reports</span></button>
-      <button class="nav-btn" data-view="findings" title="Findings"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10.7 4.2a7.1 7.1 0 1 0 4.5 12.6l3.6 3.6 1.4-1.4-3.6-3.6A7.1 7.1 0 0 0 10.7 4.2zm0 2a5.1 5.1 0 1 1 0 10.2 5.1 5.1 0 0 1 0-10.2z"/></svg></span><span id="navFindings" class="nav-label">Findings</span></button>
       <button class="nav-btn" data-view="runtime" title="Runtime"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M4 17h16v2H4zm2-4h2v3H6zm5-5h2v8h-2zm5-3h2v11h-2z"/></svg></span><span id="navRuntime" class="nav-label">Runtime</span></button>
       <button class="nav-btn" data-view="tools" title="Tools"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M14.7 4.3a4 4 0 0 0-4.9 4.9L4 15v5h5l5.8-5.8a4 4 0 0 0 4.9-4.9l-2.5 2.5-2.8-.7-.7-2.8z"/></svg></span><span id="navTools" class="nav-label">Tools</span></button>
       <button class="nav-btn" data-view="settings" title="Settings"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm8.4 3l-1.7-.6a7 7 0 0 0-.5-1.2l.8-1.6-1.9-1.9-1.6.8c-.4-.2-.8-.3-1.2-.5l-.6-1.7h-2.8l-.6 1.7c-.4.1-.8.3-1.2.5l-1.6-.8-1.9 1.9.8 1.6c-.2.4-.3.8-.5 1.2l-1.7.6v2.8l1.7.6c.1.4.3.8.5 1.2l-.8 1.6 1.9 1.9 1.6-.8c.4.2.8.3 1.2.5l.6 1.7h2.8l.6-1.7c.4-.1.8-.3 1.2-.5l1.6.8 1.9-1.9-.8-1.6c.2-.4.3-.8.5-1.2l1.7-.6z"/></svg></span><span id="navSettings" class="nav-label">Settings</span></button>
@@ -1836,7 +2132,7 @@
               <div class="hero-stats">
                 <div class="hero-stat"><div class="hero-stat-k">120+</div><div id="heroStatParticles" class="hero-stat-l">Particles</div></div>
                 <div class="hero-stat"><div class="hero-stat-k">60fps</div><div id="heroStatRender" class="hero-stat-l">Target Render</div></div>
-                <div class="hero-stat"><div class="hero-stat-k">3</div><div id="heroStatAccents" class="hero-stat-l">Accent Profiles</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">10</div><div id="heroStatAccents" class="hero-stat-l">Accent Profiles</div></div>
                 <div class="hero-stat"><div class="hero-stat-k">220ms</div><div id="heroStatTransitions" class="hero-stat-l">Transition Core</div></div>
               </div>
             </div>
@@ -1936,28 +2232,30 @@
           <div class="btn-row" style="margin-bottom: 8px;">
             <button id="btnListReports" class="btn">List Reports</button>
             <button id="btnOpenReportsDir" class="btn">Open Reports Dir</button>
+            <button id="btnCloseReport" class="btn" type="button">Close Report</button>
           </div>
           <table class="table mono" id="reportsTable">
             <thead><tr><th id="thReportsModified">Modified</th><th id="thReportsSize">Size</th><th id="thReportsPath">Path</th><th id="thReportsAction">Action</th></tr></thead>
             <tbody></tbody>
           </table>
-        </div>
 
-        <div id="view-findings" class="panel-body view hidden">
-          <div class="row">
-            <div class="field" style="grid-column: span 6;"><label id="lblSearch">Search</label><input id="findingSearch" type="text" placeholder="code/category/message" /></div>
-            <div class="field" style="grid-column: span 3;"><label id="lblSeverity">Severity</label>
-              <select id="severityFilter"><option value="ALL">ALL</option><option value="PASS">PASS</option><option value="WARN">WARN</option><option value="FAIL">FAIL</option></select>
+          <div id="reportsFindingsSection" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line);" class="hidden">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text);">Findings</h3>
+            <div class="row">
+              <div class="field" style="grid-column: span 6;"><label id="lblSearch">Search</label><input id="findingSearch" type="text" placeholder="code/category/message" /></div>
+              <div class="field" style="grid-column: span 3;"><label id="lblSeverity">Severity</label>
+                <select id="severityFilter"><option value="ALL">ALL</option><option value="PASS">PASS</option><option value="WARN">WARN</option><option value="FAIL">FAIL</option></select>
+              </div>
+              <div class="field" style="grid-column: span 3;"><label id="lblGroup">Group</label>
+                <select id="groupFilter"><option value="none">None</option><option value="severity">Severity</option><option value="category">Category</option></select>
+              </div>
             </div>
-            <div class="field" style="grid-column: span 3;"><label id="lblGroup">Group</label>
-              <select id="groupFilter"><option value="none">None</option><option value="severity">Severity</option><option value="category">Category</option></select>
-            </div>
+
+            <table class="table" id="findingsTable">
+              <thead><tr><th id="thFindingsSeverity">Severity</th><th id="thFindingsCode">Code</th><th id="thFindingsCategory">Category</th><th id="thFindingsPoints">Points</th><th id="thFindingsMessage">Message</th></tr></thead>
+              <tbody></tbody>
+            </table>
           </div>
-
-          <table class="table" id="findingsTable">
-            <thead><tr><th id="thFindingsSeverity">Severity</th><th id="thFindingsCode">Code</th><th id="thFindingsCategory">Category</th><th id="thFindingsPoints">Points</th><th id="thFindingsMessage">Message</th></tr></thead>
-            <tbody></tbody>
-          </table>
         </div>
 
         <div id="view-runtime" class="panel-body view hidden">
@@ -1971,32 +2269,47 @@
         <div id="view-tools" class="panel-body view hidden">
           <div id="toolVsdbg" class="tag">vsdbg</div><span id="vsdbgStatus" class="muted">unknown</span><br />
           <div id="toolLinters" class="tag">linters</div><span id="lintersStatus" class="muted">not configured</span>
+          <div class="row" style="margin-top: 20px;">
+            <div class="field" style="grid-column: span 6;"><label id="lblVsdbgPath">vsdbg path</label><input id="vsdbgPath" type="text" /></div>
+            <div class="field" style="grid-column: span 6;"><label id="lblLinterPaths">Linter paths (comma separated)</label><input id="linterPaths" type="text" /></div>
+          </div>
           <div class="btn-row" style="margin-top: 10px;">
             <button id="btnCheckTools" class="btn">Check Tools</button>
             <button id="btnOpenVsdbgPath" class="btn">Open vsdbg Path</button>
+            <button id="btnSaveToolsSettings" class="btn primary">Save</button>
           </div>
         </div>
 
         <div id="view-settings" class="panel-body view hidden">
           <div class="row">
-            <div class="field" style="grid-column: span 3;"><label id="lblLanguage">Language</label>
+            <div class="field" style="grid-column: span 6;"><label id="lblLanguage">Language</label>
               <select id="langSelect"><option value="auto">Auto</option><option value="en">English</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="de">German</option></select>
             </div>
             <div class="field" style="grid-column: span 3;"><label id="lblAccent">Accent</label>
-              <select id="accentSelect"><option value="AMETHYST">Amethyst</option><option value="LAVA">Lava</option><option value="LIME">Lime</option><option value="CYAN">Cyan</option><option value="CRIMSON">Crimson</option><option value="GOLD">Gold</option></select>
+              <select id="accentSelect">
+                <option value="AMETHYST">Amethyst</option>
+                <option value="CHERRY">Cherry</option>
+                <option value="LAVA">Lava</option>
+                <option value="GOLD">Gold</option>
+                <option value="EMERALD">Emerald</option>
+                <option value="SEA">Sea</option>
+                <option value="SAPPHIRE">Sapphire</option>
+                <option value="QUARTZ">Quartz</option>
+                <option value="ASH">Ash</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column: span 3;"><label id="lblThemeMode">Appearance</label>
+              <select id="themeModeSelect"><option value="AUTO">System (Auto)</option><option value="DARK">Dark</option><option value="LIGHT">Light</option></select>
             </div>
             <div class="field" style="grid-column: span 3;"><label id="lblDefaultMode">Default mode</label>
               <select id="defaultModeSelect"><option value="MIN">MIN</option><option value="PENTEST">PENTEST</option></select>
             </div>
-            <div class="field" style="grid-column: span 3;"><label id="lblReportsDir">Reports dir</label><input id="settingsOutDir" type="text" value="logs" /></div>
           </div>
           <div class="row">
-            <div class="field" style="grid-column: span 6;"><label id="lblVsdbgPath">vsdbg path</label><input id="vsdbgPath" type="text" /></div>
-            <div class="field" style="grid-column: span 6;"><label id="lblLinterPaths">Linter paths (comma separated)</label><input id="linterPaths" type="text" /></div>
+            <div class="field" style="grid-column: span 6;"><label id="lblReportsDir">Reports dir</label><input id="settingsOutDir" type="text" value="logs" /></div>
           </div>
           <div class="btn-row">
             <button id="btnSaveSettings" class="btn primary">Save Settings</button>
-            <button id="btnLoadSettings" class="btn">Reload</button>
           </div>
         </div>
       </section>
@@ -2033,14 +2346,12 @@
       en: {
         navHome: "Home",
         navReports: "Reports",
-        navFindings: "Findings",
         navRuntime: "Runtime",
         navTools: "Tools",
         navSettings: "Settings",
         navSupport: "Support",
         viewHome: "Home / Quick Start",
         viewReports: "Reports",
-        viewFindings: "Findings",
         viewRuntime: "Runtime",
         viewTools: "Tools",
         viewSettings: "Settings",
@@ -2093,6 +2404,8 @@
         thReportsPath: "Path",
         thReportsAction: "Action",
         btnOpen: "Open",
+        btnCloseReport: "Close Report",
+        reportClosed: "Report closed",
         lblSearch: "Search",
         findingSearchPlaceholder: "code/category/message",
         lblSeverity: "Severity",
@@ -2119,17 +2432,31 @@
         toolLinters: "linters",
         btnCheckTools: "Check Tools",
         btnOpenVsdbgPath: "Open vsdbg Path",
+        btnSaveToolsSettings: "Save",
         configured: "configured",
         notConfigured: "not configured",
         unknown: "unknown",
         lblLanguage: "Language",
+        langAuto: "Auto",
         lblAccent: "Accent",
+        lblThemeMode: "Appearance",
+        accentCherry: "Cherry",
+        accentLava: "Lava",
+        accentGold: "Gold",
+        accentEmerald: "Emerald",
+        accentSea: "Sea",
+        accentSapphire: "Sapphire",
+        accentAmethyst: "Amethyst",
+        accentQuartz: "Quartz",
+        accentAsh: "Ash",
+        themeModeAuto: "System (Auto)",
+        themeModeDark: "Dark",
+        themeModeLight: "Light",
         lblDefaultMode: "Default mode",
         lblReportsDir: "Reports dir",
         lblVsdbgPath: "vsdbg path",
         lblLinterPaths: "Linter paths (comma separated)",
         btnSaveSettings: "Save Settings",
-        btnLoadSettings: "Reload",
         detailsTitle: "Details",
         dLabelFinalStatus: "Final status",
         dLabelFindings: "Findings",
@@ -2159,14 +2486,12 @@
       ru: {
         navHome: "Главная",
         navReports: "Отчеты",
-        navFindings: "Находки",
         navRuntime: "Рантайм",
         navTools: "Инструменты",
         navSettings: "Настройки",
         navSupport: "Поддержка",
         viewHome: "Главная / Быстрый старт",
         viewReports: "Отчеты",
-        viewFindings: "Находки",
         viewRuntime: "Рантайм",
         viewTools: "Инструменты",
         viewSettings: "Настройки",
@@ -2219,6 +2544,8 @@
         thReportsPath: "Путь",
         thReportsAction: "Действие",
         btnOpen: "Открыть",
+        btnCloseReport: "Закрыть отчет",
+        reportClosed: "Отчет закрыт",
         lblSearch: "Поиск",
         findingSearchPlaceholder: "код/категория/сообщение",
         lblSeverity: "Severity",
@@ -2245,17 +2572,31 @@
         toolLinters: "линтеры",
         btnCheckTools: "Проверить инструменты",
         btnOpenVsdbgPath: "Открыть путь vsdbg",
+        btnSaveToolsSettings: "Сохранить",
         configured: "настроено",
         notConfigured: "не настроено",
         unknown: "неизвестно",
         lblLanguage: "Язык",
+        langAuto: "Авто",
         lblAccent: "Акцент",
+        lblThemeMode: "Оформление",
+        accentCherry: "Вишня",
+        accentLava: "Лава",
+        accentGold: "Золото",
+        accentEmerald: "Изумруд",
+        accentSea: "Море",
+        accentSapphire: "Сапфир",
+        accentAmethyst: "Аметист",
+        accentQuartz: "Кварц",
+        accentAsh: "Пепел",
+        themeModeAuto: "Системная (авто)",
+        themeModeDark: "Темная",
+        themeModeLight: "Светлая",
         lblDefaultMode: "Режим по умолчанию",
         lblReportsDir: "Папка отчетов",
         lblVsdbgPath: "Путь к vsdbg",
         lblLinterPaths: "Пути линтеров (через запятую)",
         btnSaveSettings: "Сохранить настройки",
-        btnLoadSettings: "Перезагрузить",
         detailsTitle: "Детали",
         dLabelFinalStatus: "Финальный статус",
         dLabelFindings: "Находки",
@@ -2285,14 +2626,12 @@
       uk: {
         navHome: "Головна",
         navReports: "Звіти",
-        navFindings: "Знахідки",
         navRuntime: "Рантайм",
         navTools: "Інструменти",
         navSettings: "Налаштування",
         navSupport: "Підтримка",
         viewHome: "Головна / Швидкий старт",
         viewReports: "Звіти",
-        viewFindings: "Знахідки",
         viewRuntime: "Рантайм",
         viewTools: "Інструменти",
         viewSettings: "Налаштування",
@@ -2345,6 +2684,8 @@
         thReportsPath: "Шлях",
         thReportsAction: "Дія",
         btnOpen: "Відкрити",
+        btnCloseReport: "Закрити звіт",
+        reportClosed: "Звіт закрито",
         lblSearch: "Пошук",
         findingSearchPlaceholder: "код/категорія/повідомлення",
         lblSeverity: "Severity",
@@ -2371,17 +2712,31 @@
         toolLinters: "лінтери",
         btnCheckTools: "Перевірити інструменти",
         btnOpenVsdbgPath: "Відкрити шлях vsdbg",
+        btnSaveToolsSettings: "Зберегти",
         configured: "налаштовано",
         notConfigured: "не налаштовано",
         unknown: "невідомо",
         lblLanguage: "Мова",
+        langAuto: "Авто",
         lblAccent: "Акцент",
+        lblThemeMode: "Оформлення",
+        accentCherry: "Вишня",
+        accentLava: "Лава",
+        accentGold: "Золото",
+        accentEmerald: "Смарагд",
+        accentSea: "Море",
+        accentSapphire: "Сапфір",
+        accentAmethyst: "Аметист",
+        accentQuartz: "Кварц",
+        accentAsh: "Попіл",
+        themeModeAuto: "Системна (авто)",
+        themeModeDark: "Темна",
+        themeModeLight: "Світла",
         lblDefaultMode: "Режим за замовчуванням",
         lblReportsDir: "Тека звітів",
         lblVsdbgPath: "Шлях до vsdbg",
         lblLinterPaths: "Шляхи лінтерів (через кому)",
         btnSaveSettings: "Зберегти налаштування",
-        btnLoadSettings: "Перезавантажити",
         detailsTitle: "Деталі",
         dLabelFinalStatus: "Фінальний статус",
         dLabelFindings: "Знахідки",
@@ -2411,14 +2766,12 @@
       de: {
         navHome: "Start",
         navReports: "Berichte",
-        navFindings: "Befunde",
         navRuntime: "Laufzeit",
         navTools: "Werkzeuge",
         navSettings: "Einstellungen",
         navSupport: "Support",
         viewHome: "Start / Schnellstart",
         viewReports: "Berichte",
-        viewFindings: "Befunde",
         viewRuntime: "Laufzeit",
         viewTools: "Werkzeuge",
         viewSettings: "Einstellungen",
@@ -2471,6 +2824,8 @@
         thReportsPath: "Pfad",
         thReportsAction: "Aktion",
         btnOpen: "Oeffnen",
+        btnCloseReport: "Bericht schliessen",
+        reportClosed: "Bericht geschlossen",
         lblSearch: "Suche",
         findingSearchPlaceholder: "code/kategorie/nachricht",
         lblSeverity: "Severity",
@@ -2497,17 +2852,31 @@
         toolLinters: "Linter",
         btnCheckTools: "Tools pruefen",
         btnOpenVsdbgPath: "vsdbg-Pfad oeffnen",
+        btnSaveToolsSettings: "Speichern",
         configured: "konfiguriert",
         notConfigured: "nicht konfiguriert",
         unknown: "unbekannt",
         lblLanguage: "Sprache",
+        langAuto: "Auto",
         lblAccent: "Akzent",
+        lblThemeMode: "Darstellung",
+        accentCherry: "Kirsche",
+        accentLava: "Lava",
+        accentGold: "Gold",
+        accentEmerald: "Smaragd",
+        accentSea: "Meer",
+        accentSapphire: "Saphir",
+        accentAmethyst: "Amethyst",
+        accentQuartz: "Quarz",
+        accentAsh: "Asche",
+        themeModeAuto: "System (Auto)",
+        themeModeDark: "Dunkel",
+        themeModeLight: "Hell",
         lblDefaultMode: "Standardmodus",
         lblReportsDir: "Berichtsordner",
         lblVsdbgPath: "vsdbg-Pfad",
         lblLinterPaths: "Linter-Pfade (kommagetrennt)",
         btnSaveSettings: "Einstellungen speichern",
-        btnLoadSettings: "Neu laden",
         detailsTitle: "Details",
         dLabelFinalStatus: "Endstatus",
         dLabelFindings: "Befunde",
@@ -2539,6 +2908,7 @@
     const state = {
       lang: "en",
       accent: "AMETHYST",
+      themeMode: "AUTO",
       settings: null,
       report: null,
       reports: [],
@@ -2551,6 +2921,14 @@
     };
 
     const NAV_VIEW_SELECTOR = ".nav-btn[data-view]";
+    const ACCENT_OPTIONS = ["AMETHYST", "CHERRY", "LAVA", "GOLD", "EMERALD", "SEA", "SAPPHIRE", "QUARTZ", "ASH"];
+    const LEGACY_ACCENT_MAP = {
+      LIME: "EMERALD",
+      CYAN: "SEA",
+      CRIMSON: "CHERRY"
+    };
+    const THEME_MODE_OPTIONS = ["AUTO", "DARK", "LIGHT"];
+    const systemThemeMedia = window.matchMedia("(prefers-color-scheme: light)");
 
     function tr(key) {
       const map = t[state.lang] || t.en;
@@ -2571,12 +2949,27 @@
       const map = {
         home: "viewHome",
         reports: "viewReports",
-        findings: "viewFindings",
         runtime: "viewRuntime",
         tools: "viewTools",
         settings: "viewSettings"
       };
       return map[view] || "viewHome";
+    }
+
+    function accentLabel(value) {
+      const map = {
+        CHERRY: "accentCherry",
+        LAVA: "accentLava",
+        GOLD: "accentGold",
+        EMERALD: "accentEmerald",
+        SEA: "accentSea",
+        SAPPHIRE: "accentSapphire",
+        AMETHYST: "accentAmethyst",
+        QUARTZ: "accentQuartz",
+        ASH: "accentAsh"
+      };
+      const key = map[normalizeAccent(value)] || "accentAmethyst";
+      return tr(key);
     }
 
     function localizeToolStatus(value) {
@@ -2598,15 +2991,31 @@
       return "en";
     }
 
-    function applyTheme(theme) {
-      const raw = String(theme || "AMETHYST").toUpperCase();
-      const allowed = ["AMETHYST", "LAVA", "LIME", "CYAN", "CRIMSON", "GOLD"];
-      const next = allowed.includes(raw) ? raw : "AMETHYST";
+    function normalizeAccent(accent) {
+      const raw = String(accent || "AMETHYST").toUpperCase();
+      const mapped = LEGACY_ACCENT_MAP[raw] || raw;
+      return ACCENT_OPTIONS.includes(mapped) ? mapped : "AMETHYST";
+    }
+
+    function normalizeThemeMode(mode) {
+      const raw = String(mode || "AUTO").toUpperCase();
+      return THEME_MODE_OPTIONS.includes(raw) ? raw : "AUTO";
+    }
+
+    function resolvedThemeMode(mode) {
+      const normalized = normalizeThemeMode(mode);
+      if (normalized === "AUTO") {
+        return systemThemeMedia.matches ? "LIGHT" : "DARK";
+      }
+      return normalized;
+    }
+
+    function applyAccent(accent) {
+      const next = normalizeAccent(accent);
       const root = document.documentElement;
       const prev = root.getAttribute("data-accent") || "AMETHYST";
-      document.documentElement.setAttribute("data-theme", "DARK");
-      document.documentElement.setAttribute("data-accent", next);
-      document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + next;
+      root.setAttribute("data-accent", next);
+      document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + accentLabel(next);
       state.accent = next;
 
       if (prev !== next) {
@@ -2619,10 +3028,22 @@
       }
     }
 
+    function applyThemeMode(mode) {
+      const normalized = normalizeThemeMode(mode);
+      const resolved = resolvedThemeMode(normalized);
+      const root = document.documentElement;
+      root.setAttribute("data-theme", resolved);
+      state.themeMode = normalized;
+      const modeSelect = document.getElementById("themeModeSelect");
+      if (modeSelect && modeSelect.value !== normalized) {
+        modeSelect.value = normalized;
+      }
+      syncEnhancedSelects();
+    }
+
     function applyTexts() {
       setText("navHome", "navHome");
       setText("navReports", "navReports");
-      setText("navFindings", "navFindings");
       setText("navRuntime", "navRuntime");
       setText("navTools", "navTools");
       setText("navSettings", "navSettings");
@@ -2671,6 +3092,7 @@
       setText("thReportsSize", "thReportsSize");
       setText("thReportsPath", "thReportsPath");
       setText("thReportsAction", "thReportsAction");
+      setText("btnCloseReport", "btnCloseReport");
       setText("lblSearch", "lblSearch");
       setPlaceholder("findingSearch", "findingSearchPlaceholder");
       setText("lblSeverity", "lblSeverity");
@@ -2697,14 +3119,15 @@
       setText("toolLinters", "toolLinters");
       setText("btnCheckTools", "btnCheckTools");
       setText("btnOpenVsdbgPath", "btnOpenVsdbgPath");
+      setText("btnSaveToolsSettings", "btnSaveToolsSettings");
       setText("lblLanguage", "lblLanguage");
       setText("lblAccent", "lblAccent");
+      setText("lblThemeMode", "lblThemeMode");
       setText("lblDefaultMode", "lblDefaultMode");
       setText("lblReportsDir", "lblReportsDir");
       setText("lblVsdbgPath", "lblVsdbgPath");
       setText("lblLinterPaths", "lblLinterPaths");
       setText("btnSaveSettings", "btnSaveSettings");
-      setText("btnLoadSettings", "btnLoadSettings");
       setText("detailsTitle", "detailsTitle");
       setText("dLabelFinalStatus", "dLabelFinalStatus");
       setText("dLabelFindings", "dLabelFindings");
@@ -2725,8 +3148,39 @@
       if (["DONE", "ГОТОВО", "FERTIG"].includes(status)) statusEl.textContent = tr("statusDone");
       const mode = document.getElementById("modeSelect").value || "MIN";
       document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + mode;
-      document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + (state.accent || "AMETHYST");
+      document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + accentLabel(state.accent || "AMETHYST");
       document.querySelector(".confirm-check-text").textContent = tr("confirmPentest");
+
+      const langSelect = document.getElementById("langSelect");
+      if (langSelect && langSelect.options.length >= 5) {
+        langSelect.options[0].textContent = tr("langAuto");
+        langSelect.options[1].textContent = "English";
+        langSelect.options[2].textContent = "Russian";
+        langSelect.options[3].textContent = "Ukrainian";
+        langSelect.options[4].textContent = "German";
+      }
+
+      const accentSelect = document.getElementById("accentSelect");
+      if (accentSelect && accentSelect.options.length >= 10) {
+        accentSelect.options[0].textContent = tr("accentCherry");
+        accentSelect.options[1].textContent = tr("accentLava");
+        accentSelect.options[2].textContent = tr("accentGold");
+        accentSelect.options[3].textContent = tr("accentEmerald");
+        accentSelect.options[4].textContent = tr("accentSea");
+        accentSelect.options[5].textContent = tr("accentSapphire");
+        accentSelect.options[6].textContent = tr("accentAmethyst");
+        accentSelect.options[7].textContent = tr("accentQuartz");
+        accentSelect.options[8].textContent = tr("accentSnow");
+        accentSelect.options[9].textContent = tr("accentAsh");
+      }
+
+      const themeModeSelect = document.getElementById("themeModeSelect");
+      if (themeModeSelect && themeModeSelect.options.length >= 3) {
+        themeModeSelect.options[0].textContent = tr("themeModeAuto");
+        themeModeSelect.options[1].textContent = tr("themeModeDark");
+        themeModeSelect.options[2].textContent = tr("themeModeLight");
+      }
+
       const supportBtn = document.getElementById("btnSupport");
       if (supportBtn) supportBtn.title = tr("navSupport");
       syncEnhancedSelects();
@@ -2817,6 +3271,19 @@
     function showSelectDialog(select, titleText) {
       const old = document.getElementById("selectDialog");
       if (old) old.remove();
+      const isAccentPicker = select.id === "accentSelect";
+      const accentPreview = {
+        CHERRY: "linear-gradient(120deg, #d53a47, #f06a7a)",
+        LAVA: "linear-gradient(120deg, #ff6b2e, #ff9d2e)",
+        GOLD: "linear-gradient(120deg, #d6a83d, #f0cb73)",
+        EMERALD: "linear-gradient(120deg, #2db873, #49d68d)",
+        SEA: "linear-gradient(120deg, #29bfb0, #63e5d8)",
+        SAPPHIRE: "linear-gradient(120deg, #2f74de, #58a1ff)",
+        AMETHYST: "linear-gradient(120deg, #8f4dff, #c96eff)",
+        QUARTZ: "linear-gradient(120deg, #d16eb3, #f38bcf)",
+        SNOW: "linear-gradient(120deg, #dbe6f4, #f7fbff)",
+        ASH: "linear-gradient(120deg, #8f97a4, #bdc5d2)"
+      };
 
       const optionLabel = (opt) => {
         const label = String((opt && (opt.label || opt.textContent)) || "").trim();
@@ -2850,6 +3317,10 @@
                 <div class="picker-k">${tr("pickerPending")}</div>
                 <div class="picker-v" id="pickerPending">-</div>
               </div>
+              <div id="pickerPreviewWrap" class="${isAccentPicker ? "" : "hidden"}">
+                <div class="picker-k">Preview</div>
+                <div class="picker-preview" id="pickerPreview"></div>
+              </div>
             </div>
           </div>
           <div class="picker-foot">
@@ -2863,6 +3334,7 @@
       const list = document.getElementById("pickerList");
       const currentBox = document.getElementById("pickerCurrent");
       const pendingBox = document.getElementById("pickerPending");
+      const previewBox = document.getElementById("pickerPreview");
 
       const selectedLabel = () => {
         const selected = options.find((opt) => opt.value === pendingValue);
@@ -2871,6 +3343,9 @@
 
       currentBox.textContent = optionLabel(select.options[select.selectedIndex]);
       pendingBox.textContent = selectedLabel();
+      if (isAccentPicker && previewBox) {
+        previewBox.style.background = accentPreview[pendingValue] || accentPreview.AMETHYST;
+      }
 
       const render = () => {
         list.innerHTML = "";
@@ -2878,10 +3353,18 @@
           const item = document.createElement("button");
           item.type = "button";
           item.className = "picker-item" + (opt.value === pendingValue ? " is-active" : "");
-          item.textContent = optionLabel(opt);
+          if (isAccentPicker) {
+            const swatch = accentPreview[opt.value] || accentPreview.AMETHYST;
+            item.innerHTML = `<span class="picker-item-row"><span>${optionLabel(opt)}</span><span class="picker-swatch" style="background:${swatch}"></span></span>`;
+          } else {
+            item.textContent = optionLabel(opt);
+          }
           item.addEventListener("click", () => {
             pendingValue = opt.value;
             pendingBox.textContent = selectedLabel();
+            if (isAccentPicker && previewBox) {
+              previewBox.style.background = accentPreview[pendingValue] || accentPreview.AMETHYST;
+            }
             render();
           });
           item.addEventListener("dblclick", () => {
@@ -2959,16 +3442,29 @@
 
     function previewThemeChange(nextTheme) {
       const select = document.getElementById("accentSelect");
-      const previous = state.settings && state.settings.theme ? String(state.settings.theme).toUpperCase() : state.accent || "AMETHYST";
-      const next = String(nextTheme || "AMETHYST").toUpperCase();
+      const previous = state.settings && state.settings.accent ? normalizeAccent(state.settings.accent) : state.accent || "AMETHYST";
+      const next = normalizeAccent(nextTheme || "AMETHYST");
       if (next === String(previous).toUpperCase()) return;
 
-      applyTheme(next);
+      applyAccent(next);
+      if (!state.settings) state.settings = {};
+      state.settings.accent = next;
+      select.value = next;
+      syncEnhancedSelects();
+      flashNote(tr("accentApplied"));
+    }
+
+    function previewThemeModeChange(nextMode) {
+      const select = document.getElementById("themeModeSelect");
+      const previous = state.settings && state.settings.theme ? normalizeThemeMode(state.settings.theme) : state.themeMode;
+      const next = normalizeThemeMode(nextMode || "AUTO");
+      if (next === previous) return;
+
+      applyThemeMode(next);
       if (!state.settings) state.settings = {};
       state.settings.theme = next;
       select.value = next;
       syncEnhancedSelects();
-      flashNote(tr("accentApplied"));
     }
 
     function previewLanguageChange(nextLangRaw) {
@@ -3438,8 +3934,15 @@
     }
 
     function applySettingsToUi(s) {
+      const rawTheme = String((s && s.theme) || "AUTO").toUpperCase();
+      const looksLikeThemeMode = THEME_MODE_OPTIONS.includes(rawTheme);
+      const accentFromLegacy = looksLikeThemeMode ? "AMETHYST" : rawTheme;
+      const accent = normalizeAccent((s && s.accent) || accentFromLegacy);
+      const themeMode = normalizeThemeMode(looksLikeThemeMode ? rawTheme : "AUTO");
+
       document.getElementById("langSelect").value = s.language || "auto";
-      document.getElementById("accentSelect").value = (s.theme || "AMETHYST").toUpperCase();
+      document.getElementById("accentSelect").value = accent;
+      document.getElementById("themeModeSelect").value = themeMode;
       document.getElementById("defaultModeSelect").value = s.default_mode || "MIN";
       document.getElementById("settingsOutDir").value = s.out_dir || "logs";
       document.getElementById("outDirInput").value = s.out_dir || "logs";
@@ -3447,7 +3950,8 @@
       document.getElementById("vsdbgPath").value = s.vsdbg_path || "";
       document.getElementById("linterPaths").value = (s.linter_paths || []).join(",");
 
-      applyTheme(s.theme || "AMETHYST");
+      applyAccent(accent);
+      applyThemeMode(themeMode);
       document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + (s.default_mode || "MIN");
       document.getElementById("stMode").textContent = "mode=" + (s.default_mode || "MIN");
       document.getElementById("vsdbgStatus").textContent = s.vsdbg_path ? tr("configured") : tr("notConfigured");
@@ -3466,12 +3970,32 @@
       switchView(state.view);
     }
 
-    async function saveSettings() {
+    async function saveUiSettings() {
       const settings = {
         language: document.getElementById("langSelect").value,
-        theme: document.getElementById("accentSelect").value,
+        theme: normalizeThemeMode(document.getElementById("themeModeSelect").value),
+        accent: normalizeAccent(document.getElementById("accentSelect").value),
         default_mode: document.getElementById("defaultModeSelect").value,
         out_dir: document.getElementById("settingsOutDir").value || "logs",
+        analyzer_path: null,
+        vsdbg_path: (state.settings && state.settings.vsdbg_path) || null,
+        linter_paths: (state.settings && state.settings.linter_paths) || []
+      };
+      await post("save_settings", settings);
+      state.settings = settings;
+      applySettingsToUi(settings);
+      addLog("[ui] interface settings saved");
+      flashNote(tr("settingsSaved"));
+    }
+
+    async function saveToolsSettings() {
+      const current = state.settings || {};
+      const settings = {
+        language: current.language || document.getElementById("langSelect").value,
+        theme: normalizeThemeMode(current.theme || document.getElementById("themeModeSelect").value),
+        accent: normalizeAccent(current.accent || document.getElementById("accentSelect").value),
+        default_mode: current.default_mode || document.getElementById("defaultModeSelect").value,
+        out_dir: current.out_dir || document.getElementById("settingsOutDir").value || "logs",
         analyzer_path: null,
         vsdbg_path: document.getElementById("vsdbgPath").value || null,
         linter_paths: (document.getElementById("linterPaths").value || "").split(",").map(v => v.trim()).filter(Boolean)
@@ -3479,7 +4003,7 @@
       await post("save_settings", settings);
       state.settings = settings;
       applySettingsToUi(settings);
-      addLog("[ui] settings saved");
+      addLog("[ui] tools settings saved");
       flashNote(tr("settingsSaved"));
     }
 
@@ -3499,7 +4023,7 @@
         btn.addEventListener("click", async () => {
           const path = btn.getAttribute("data-open");
           await loadReport(path);
-          switchView("findings");
+          switchView("reports");
         });
       });
     }
@@ -3569,6 +4093,40 @@
       applyMetrics(data);
       renderFindings();
       renderRuntime();
+      document.getElementById("reportsFindingsSection").classList.remove("hidden");
+    }
+
+    function clearCurrentReport() {
+      state.report = null;
+      state.selectedScenario = null;
+      document.getElementById("reportHint").textContent = tr("noReport");
+      document.getElementById("detailsMeta").textContent = "-";
+      document.getElementById("dScenario").textContent = "-";
+      document.getElementById("kStatus").textContent = tr("statusIdle");
+      document.getElementById("kScore").textContent = "0";
+      document.getElementById("kWarn").textContent = "0";
+      document.getElementById("kFail").textContent = "0";
+      document.getElementById("kP50").textContent = "0";
+      document.getElementById("kP95").textContent = "0";
+      document.getElementById("dStatus").textContent = "-";
+      document.getElementById("dFindings").textContent = "0";
+      document.getElementById("dRuntime").textContent = "0";
+      document.getElementById("dFlakiness").textContent = "0%";
+      document.getElementById("dStability").textContent = "0%";
+      document.getElementById("infoPassBar").style.width = "0%";
+      document.getElementById("infoWarnBar").style.width = "0%";
+      document.getElementById("infoFailBar").style.width = "0%";
+      document.getElementById("infoStabilityBar").style.width = "0%";
+      document.getElementById("infoPassPct").textContent = "0%";
+      document.getElementById("infoWarnPct").textContent = "0%";
+      document.getElementById("infoFailPct").textContent = "0%";
+      document.getElementById("infoStability").textContent = "0%";
+      document.querySelector("#findingsTable tbody").innerHTML = "";
+      document.querySelector("#runtimeTable tbody").innerHTML = "";
+      document.getElementById("reportsFindingsSection").classList.add("hidden");
+      drawSeverityDonut({ pass: 0, warn: 0, fail: 0 });
+      drawRuntimeChart({ durations: [], p50: 0, p95: 0 });
+      flashNote(tr("reportClosed"));
     }
 
     function startProgress() {
@@ -3679,12 +4237,13 @@
       document.getElementById("btnRefreshReports").addEventListener("click", () => listReports().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnListReports").addEventListener("click", () => listReports().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnOpenReportsDir").addEventListener("click", () => post("open_path", { path: document.getElementById("outDirInput").value || "logs" }).catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnSaveSettings").addEventListener("click", () => saveSettings().catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnLoadSettings").addEventListener("click", () => loadSettings().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnSaveSettings").addEventListener("click", () => saveUiSettings().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnCheckTools").addEventListener("click", () => checkTools().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnOpenVsdbgPath").addEventListener("click", () => post("open_path", { path: document.getElementById("vsdbgPath").value || "" }).catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnSaveToolsSettings").addEventListener("click", () => saveToolsSettings().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnCreateBundle").addEventListener("click", () => createBundle().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnRerunScenario").addEventListener("click", () => rerunScenario().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnCloseReport").addEventListener("click", clearCurrentReport);
       document.getElementById("findingSearch").addEventListener("input", renderFindings);
       document.getElementById("severityFilter").addEventListener("change", renderFindings);
       document.getElementById("groupFilter").addEventListener("change", renderFindings);
@@ -3693,6 +4252,15 @@
       });
       document.getElementById("accentSelect").addEventListener("change", (e) => {
         previewThemeChange(e.target.value);
+      });
+      document.getElementById("themeModeSelect").addEventListener("change", (e) => {
+        previewThemeModeChange(e.target.value);
+      });
+
+      systemThemeMedia.addEventListener("change", () => {
+        if (state.themeMode === "AUTO") {
+          applyThemeMode("AUTO");
+        }
       });
 
       window.addEventListener("resize", () => {

@@ -17,10 +17,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-<<<<<<< HEAD
-echo [3/3] Done.
-echo Artifacts: "%~dp0dist\EXE_Analyzer"
-=======
 echo [3/4] Build setup installer (optional if Inno Setup is installed)...
 call "%~dp0build_setup.cmd" --skip-portable
 if errorlevel 1 (
@@ -48,5 +44,4 @@ if errorlevel 1 (
 )
 
 echo [DONE] Artifacts are in "%~dp0dist"
->>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 exit /b 0

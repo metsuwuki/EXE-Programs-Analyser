@@ -22,25 +22,14 @@ impl Default for AnalysisMode {
 impl AnalysisMode {
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum UiTheme {
-    Dark,
-    Light,
-}
-
-impl Default for UiTheme {
-    fn default() -> Self {
-        Self::Dark
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     #[serde(default)]
     pub language: String,
-    #[serde(default)]
-    pub theme: UiTheme,
+    #[serde(default = "default_theme_mode")]
+    pub theme: String,
+    #[serde(default = "default_accent")]
+    pub accent: String,
     #[serde(default)]
     pub default_mode: AnalysisMode,
     #[serde(default)]
@@ -57,7 +46,8 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             language: "auto".to_string(),
-            theme: UiTheme::Dark,
+            theme: default_theme_mode(),
+            accent: default_accent(),
             default_mode: AnalysisMode::Min,
             out_dir: "logs".to_string(),
             analyzer_path: None,
@@ -65,6 +55,14 @@ impl Default for AppSettings {
             linter_paths: Vec::new(),
         }
     }
+}
+
+fn default_theme_mode() -> String {
+    "AUTO".to_string()
+}
+
+fn default_accent() -> String {
+    "AMETHYST".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
