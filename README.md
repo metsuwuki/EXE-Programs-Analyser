@@ -1,34 +1,54 @@
 # Metsuki EXE Analyzer
 
-Metsuki EXE Analyzer is a Windows-focused executable analysis toolkit with a desktop WebView UI and a CLI engine.
+<p align="center">
+	Windows-focused executable analysis toolkit with a desktop WebView UI, CLI automation support, and profile-driven security checks.
+</p>
 
-## What is included
+<p align="center">
+	<img alt="Rust" src="https://img.shields.io/badge/Rust-1.77+-CE422B?logo=rust&logoColor=white">
+	<img alt="UI" src="https://img.shields.io/badge/UI-WebView2%20Desktop-0EA5E9?logo=windows-terminal&logoColor=white">
+	<img alt="CLI" src="https://img.shields.io/badge/CLI-exe__tester-2E8B57">
+	<img alt="Platform" src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white">
+</p>
 
-- `exe_tester_web_gui.exe`: desktop UI host (WebView-based).
-- `.engine/analyzer_core.exe`: internal analysis engine used by the desktop app.
-- `exe_tester` bin: CLI entrypoint for automation and local testing.
+---
 
-## Key capabilities
+## ✨ Features
 
-- PE checks: sections, entropy, imports, mitigations, overlay signals.
-- Runtime scenarios and timing diagnostics.
-- Structured findings with score and severity breakdown.
-- Security-Lab profiles and custom module selection.
-- Localization: English, Russian, Ukrainian, German.
+- 🔎 PE integrity checks: sections, entropy, imports, mitigations, overlay indicators
+- 🧪 Runtime scenarios with timing diagnostics and evidence timeline
+- 📊 Structured findings with score and severity breakdown
+- 🧩 Security-Lab profiles with custom module selection
+- 🌐 Localization: English, Russian, Ukrainian, German
+- 🖥 Desktop host (`exe_tester_web_gui.exe`) + automation-ready CLI (`exe_tester`)
 
-## Analysis modes
+---
 
-- `MIN`: default safer profile.
-- `PENTEST`: deeper checks; requires explicit confirmation.
+## 📦 What Is Included
 
-## End-user quick start
+- `exe_tester_web_gui.exe`: desktop WebView-based UI host
+- `.engine/analyzer_core.exe`: internal analysis engine used by desktop app
+- `exe_tester` bin: CLI entrypoint for automation and local testing
 
-1. Open the portable folder `dist/EXE_Analyzer`.
-2. Run `exe_tester_web_gui.exe`.
+---
 
-Rust and Cargo are not required for end users.
+## 🧭 Analysis Modes
 
-## Development
+- `MIN`: safer default profile
+- `PENTEST`: deeper checks, requires explicit confirmation
+
+---
+
+## 🚀 Quick Start
+
+### End users
+
+1. Open portable folder: `dist/EXE_Analyzer`
+2. Run: `exe_tester_web_gui.exe`
+
+Rust/Cargo are not required for end users.
+
+### Development
 
 Build all binaries:
 
@@ -42,19 +62,21 @@ Run desktop UI:
 cargo run --bin exe_tester_web_gui
 ```
 
-Run CLI engine:
+Run CLI engine in MIN mode:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-min --timeout 4 --runs 6 --out-dir logs
 ```
 
-PENTEST mode example:
+Run CLI engine in PENTEST mode:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-pentest --confirm-extended-tests --timeout 4 --runs 8 --out-dir logs
 ```
 
-## Packaging commands
+---
+
+## 🏗 Build & Packaging
 
 Build portable package:
 
@@ -80,18 +102,26 @@ Recommended release pipeline:
 release_artifacts.cmd
 ```
 
-## Output locations
+---
+
+## 📁 Output Locations
 
 - Portable bundle: `dist/EXE_Analyzer`
 - Installer: `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe`
-- Security manifests: `dist/EXE_Analyzer/SHA256SUMS.txt`, `dist/EXE_Analyzer/SECURITY_PRECHECK.txt`
+- Security manifests:
+	- `dist/EXE_Analyzer/SHA256SUMS.txt`
+	- `dist/EXE_Analyzer/SECURITY_PRECHECK.txt`
 
-## Security-Lab docs
+---
+
+## 🛡 Security Docs
 
 - Module matrix and profile behavior: `SECURITY_LAB_MODULES.md`
 - Security and false-positive guidance: `SECURITY.md`
 
-## Repository notes
+---
 
-- Keep source and scripts in Git (`src/`, `scripts/`, `installer/`, `webui/`, `assets/`).
-- Do not commit generated outputs (`target/`, `dist/`, runtime logs).
+## 🧱 Repository Notes
+
+- Keep source and scripts in Git: `src/`, `scripts/`, `installer/`, `webui/`, `assets/`
+- Do not commit generated outputs: `target/`, `dist/`, runtime logs

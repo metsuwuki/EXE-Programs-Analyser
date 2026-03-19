@@ -1,20 +1,34 @@
 # Security-Lab Modules
 
-Security-Lab extends analysis with profile-driven modules and explicit compatibility checks.
+<p align="center">
+	Security-Lab extends analysis with profile-driven modules and explicit compatibility checks.
+</p>
 
-## Status markers
+<p align="center">
+	<img alt="Profiles" src="https://img.shields.io/badge/Profiles-standard%20%7C%20aggressive-0F766E">
+	<img alt="Selection" src="https://img.shields.io/badge/Module%20State-ON%20%7C%20OFF%20%7C%20ASK%20%7C%20BLOCKED-334155">
+	<img alt="CLI" src="https://img.shields.io/badge/CLI-exe__tester-2E8B57">
+</p>
 
-- `ON`: module is selected and active.
-- `OFF`: module is not selected.
-- `BLOCKED`: module is incompatible with current target/build conditions.
-- `ASK`: module needs explicit opt-in to run extended checks.
+---
 
-## Profiles
+## 🧭 Status Markers
 
-- `standard`: safer default profile.
-- `aggressive`: deeper profile, can include `ASK` modules.
+- `ON`: module is selected and active
+- `OFF`: module is not selected
+- `BLOCKED`: module is incompatible with current target/build conditions
+- `ASK`: module requires explicit opt-in for extended checks
 
-## Module catalog
+---
+
+## ⚙️ Profiles
+
+- `standard`: safer default profile
+- `aggressive`: deeper profile, can include `ASK` modules
+
+---
+
+## 🧩 Module Catalog
 
 | ID | Area | Standard | Aggressive | Target type | Purpose |
 |---|---|---|---|---|---|
@@ -29,14 +43,18 @@ Security-Lab extends analysis with profile-driven modules and explicit compatibi
 
 `*` `fuzz_libafl` is blocked unless built with `libafl-engine` and executed with `--fuzz-engine libafl`.
 
-## Compatibility rules
+---
 
-- EXE-only modules are blocked for source targets.
-- Source-only modules are blocked for executable targets.
-- Some aggressive checks require `--confirm-extended-tests`.
-- Optional engines/features can force `BLOCKED` status.
+## 🔒 Compatibility Rules
 
-## CLI usage examples
+- EXE-only modules are blocked for source targets
+- Source-only modules are blocked for executable targets
+- Some aggressive checks require `--confirm-extended-tests`
+- Optional engines/features can force `BLOCKED` status
+
+---
+
+## 💻 CLI Usage Examples
 
 List available modules:
 
@@ -62,9 +80,11 @@ Run custom module set:
 cargo run --bin exe_tester -- "C:\path\target.exe" --modules pe_rules,asm_disasm,runtime_sandbox_trace,fuzz_native
 ```
 
-## Practical recommendation
+---
 
-1. Start with `standard` profile.
-2. Review `ASK` and `BLOCKED` statuses in output telemetry.
-3. Enable aggressive checks only when needed.
-4. For CI repeatability, pin modules with `--modules`.
+## ✅ Practical Recommendation
+
+1. Start with `standard` profile
+2. Review `ASK` and `BLOCKED` statuses in output telemetry
+3. Enable aggressive checks only when needed
+4. For CI repeatability, pin modules with `--modules`
