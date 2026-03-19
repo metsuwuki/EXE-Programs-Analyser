@@ -11,6 +11,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 mod runtime_checks;
 mod preflight;
+<<<<<<< HEAD
+=======
+mod security_lab;
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 
 #[derive(Debug, Clone)]
 struct Config {
@@ -18,11 +22,38 @@ struct Config {
     timeout_secs: u64,
     runs: u32,
     out_dir: PathBuf,
+    analysis_mode: AnalysisMode,
     mode: ScanMode,
     fuzz_engine: FuzzEngine,
+<<<<<<< HEAD
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+=======
+    security_lab_enabled: bool,
+    lab_profile: SecurityLabProfile,
+    custom_modules: Vec<String>,
+    confirm_extended_tests: bool,
+    list_lab_modules: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SecurityLabProfile {
+    Standard,
+    Aggressive,
+}
+
+impl SecurityLabProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            SecurityLabProfile::Standard => "standard",
+            SecurityLabProfile::Aggressive => "aggressive",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 enum FuzzEngine {
     Native,
     LibAfl,
@@ -95,6 +126,22 @@ enum ScanMode {
     Balanced,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum AnalysisMode {
+    Min,
+    Pentest,
+}
+
+impl AnalysisMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            AnalysisMode::Min => "MIN",
+            AnalysisMode::Pentest => "PENTEST",
+        }
+    }
+}
+
 impl ScanMode {
     fn as_str(self) -> &'static str {
         match self {
@@ -139,17 +186,42 @@ struct RunResult {
     duration_ms: u128,
     stdout_len: usize,
     stderr_len: usize,
+    failure_reason: String,
+    trace: RuntimeTrace,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct RuntimeTrace {
+    scenario_kind: String,
+    sandbox_profile: String,
+    env_policy: String,
+    working_dir: String,
+    started_unix: u64,
+    finished_unix: u64,
+    events: Vec<RuntimeTraceEvent>,
+    stdout_preview: String,
+    stderr_preview: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct RuntimeTraceEvent {
+    at_ms: u128,
+    stage: String,
+    detail: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 struct Report {
+    schema_version: String,
     target: String,
     generated_unix: u64,
+    analysis_mode: AnalysisMode,
     mode: ScanMode,
     score: u32,
     final_status: Severity,
     findings: Vec<Finding>,
     runtime: Vec<RunResult>,
+    telemetry: security_lab::SecurityLabTelemetry,
 }
 
 fn main() {
@@ -158,7 +230,7 @@ fn main() {
         Err(msg) => {
             eprintln!("{}", msg);
             eprintln!(
-                "Usage: exe_tester <path_to_target> [--timeout <sec>] [--runs <count>] [--out-dir <path>] [--strict|--balanced]"
+                "Usage: exe_tester <path_to_target> [--timeout <sec>] [--runs <count>] [--out-dir <path>] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
             );
             std::process::exit(64);
         }
@@ -167,27 +239,59 @@ fn main() {
 
 fn run(config: Config) {
     let target_kind = detect_target_kind(&config.exe_path);
+
+    if config.list_lab_modules {
+        security_lab::print_module_catalog();
+        return;
+    }
+
     let mut findings = Vec::new();
     println!("=== EXE Analyzer v2 (Rust) ===");
     println!("Target: {}", config.exe_path.display());
     println!("TargetType: {}", target_kind.as_str());
     println!(
+<<<<<<< HEAD
         "Mode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
+=======
+        "AnalysisMode: {} | VerdictMode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
+        config.analysis_mode.as_str(),
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
         config.mode.as_str(),
         config.timeout_secs,
         config.runs,
         config.out_dir.display(),
         config.fuzz_engine.as_str()
+<<<<<<< HEAD
+=======
+    );
+    println!(
+        "SecurityLab: {} | Profile: {} | CustomModules: {} | ConfirmExtended: {}",
+        if config.security_lab_enabled {
+            "enabled"
+        } else {
+            "disabled"
+        },
+        config.lab_profile.as_str(),
+        if config.custom_modules.is_empty() {
+            "<profile defaults>".to_string()
+        } else {
+            config.custom_modules.join(",")
+        },
+        config.confirm_extended_tests
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     );
     println!();
-    println!("[PHASE 1/3] static analysis");
+    println!("[PHASE 1/4] static analysis");
 
     let bytes = match preflight::preflight_and_load(&config.exe_path, target_kind, &mut findings) {
         Ok(data) => data,
         Err(_) => {
-            let (score, final_status) = score_and_status(&config, &findings);
             let runtime = Vec::new();
-            emit_and_exit(&config, findings, runtime, score, final_status);
+            let telemetry =
+                security_lab::build_telemetry(&config, target_kind, &[], &runtime, &mut findings);
+            security_lab::print_module_info(&telemetry);
+            let (score, final_status) = score_and_status(&config, &findings);
+            emit_and_exit(&config, findings, runtime, telemetry, score, final_status);
             return;
         }
     };
@@ -205,7 +309,7 @@ fn run(config: Config) {
         }
     }
 
-    println!("[PHASE 2/3] runtime / behavior checks");
+    println!("[PHASE 2/4] runtime / behavior checks");
     let runtime = if target_kind == TargetKind::Executable {
         runtime_checks::run_runtime_checks(&config, &mut findings)
     } else {
@@ -219,9 +323,14 @@ fn run(config: Config) {
         Vec::new()
     };
 
-    println!("[PHASE 3/3] report generation");
+    println!("[PHASE 3/4] security-lab analysis");
+    let telemetry =
+        security_lab::build_telemetry(&config, target_kind, &bytes, &runtime, &mut findings);
+    security_lab::print_module_info(&telemetry);
+
+    println!("[PHASE 4/4] report generation");
     let (score, final_status) = score_and_status(&config, &findings);
-    emit_and_exit(&config, findings, runtime, score, final_status);
+    emit_and_exit(&config, findings, runtime, telemetry, score, final_status);
 }
 
 fn parse_args(args: Vec<String>) -> Result<Config, String> {
@@ -233,8 +342,19 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
     let mut timeout_secs: u64 = 4;
     let mut runs: u32 = 6;
     let mut out_dir = PathBuf::from("logs");
+<<<<<<< HEAD
     let mut mode = ScanMode::Strict;
     let mut fuzz_engine = FuzzEngine::Native;
+=======
+    let mut analysis_mode = AnalysisMode::Min;
+    let mut mode = ScanMode::Balanced;
+    let mut fuzz_engine = FuzzEngine::Native;
+    let mut security_lab_enabled = true;
+    let mut lab_profile = SecurityLabProfile::Standard;
+    let mut custom_modules = Vec::new();
+    let mut confirm_extended_tests = false;
+    let mut list_lab_modules = false;
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 
     let mut i = 2;
     while i < args.len() {
@@ -276,6 +396,38 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
             "--balanced" => {
                 mode = ScanMode::Balanced;
             }
+<<<<<<< HEAD
+=======
+            "--mode-min" => {
+                analysis_mode = AnalysisMode::Min;
+                mode = ScanMode::Balanced;
+                lab_profile = SecurityLabProfile::Standard;
+            }
+            "--mode-pentest" => {
+                analysis_mode = AnalysisMode::Pentest;
+                mode = ScanMode::Strict;
+                lab_profile = SecurityLabProfile::Aggressive;
+            }
+            "--mode" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err("Missing value for --mode".to_string());
+                }
+                match args[i].to_ascii_lowercase().as_str() {
+                    "min" => {
+                        analysis_mode = AnalysisMode::Min;
+                        mode = ScanMode::Balanced;
+                        lab_profile = SecurityLabProfile::Standard;
+                    }
+                    "pentest" => {
+                        analysis_mode = AnalysisMode::Pentest;
+                        mode = ScanMode::Strict;
+                        lab_profile = SecurityLabProfile::Aggressive;
+                    }
+                    _ => return Err("--mode must be 'min' or 'pentest'".to_string()),
+                }
+            }
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
             "--fuzz-engine" => {
                 i += 1;
                 if i >= args.len() {
@@ -287,9 +439,50 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
                     _ => return Err("--fuzz-engine must be 'native' or 'libafl'".to_string()),
                 };
             }
+<<<<<<< HEAD
+=======
+            "--lab-profile" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err("Missing value for --lab-profile".to_string());
+                }
+                lab_profile = match args[i].to_ascii_lowercase().as_str() {
+                    "standard" => SecurityLabProfile::Standard,
+                    "aggressive" => SecurityLabProfile::Aggressive,
+                    _ => return Err("--lab-profile must be 'standard' or 'aggressive'".to_string()),
+                };
+            }
+            "--no-security-lab" => {
+                security_lab_enabled = false;
+            }
+            "--confirm-extended-tests" => {
+                confirm_extended_tests = true;
+            }
+            "--list-lab-modules" => {
+                list_lab_modules = true;
+            }
+            "--modules" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err("Missing value for --modules".to_string());
+                }
+                custom_modules = args[i]
+                    .split(',')
+                    .map(|s| s.trim().to_ascii_lowercase())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                if custom_modules.is_empty() {
+                    return Err("--modules requires at least one module id".to_string());
+                }
+            }
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
             other => return Err(format!("Unknown argument: {}", other)),
         }
         i += 1;
+    }
+
+    if analysis_mode == AnalysisMode::Pentest && !confirm_extended_tests {
+        return Err("PENTEST mode requires explicit --confirm-extended-tests opt-in".to_string());
     }
 
     Ok(Config {
@@ -297,8 +490,17 @@ fn parse_args(args: Vec<String>) -> Result<Config, String> {
         timeout_secs,
         runs,
         out_dir,
+        analysis_mode,
         mode,
         fuzz_engine,
+<<<<<<< HEAD
+=======
+        security_lab_enabled,
+        lab_profile,
+        custom_modules,
+        confirm_extended_tests,
+        list_lab_modules,
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     })
 }
 
@@ -986,11 +1188,12 @@ fn emit_and_exit(
     config: &Config,
     findings: Vec<Finding>,
     runtime: Vec<RunResult>,
+    telemetry: security_lab::SecurityLabTelemetry,
     score: u32,
     final_status: Severity,
 ) {
-    print_console_report(&findings, &runtime, score, final_status);
-    let paths = write_report_files(config, &findings, &runtime, score, final_status);
+    print_console_report(&findings, &runtime, &telemetry, score, final_status);
+    let paths = write_report_files(config, &findings, &runtime, &telemetry, score, final_status);
 
     if let Ok((full_log, issues_log, json_log)) = paths {
         println!();
@@ -1006,7 +1209,13 @@ fn emit_and_exit(
     }
 }
 
-fn print_console_report(findings: &[Finding], runtime: &[RunResult], score: u32, final_status: Severity) {
+fn print_console_report(
+    findings: &[Finding],
+    runtime: &[RunResult],
+    telemetry: &security_lab::SecurityLabTelemetry,
+    score: u32,
+    final_status: Severity,
+) {
     let pass = findings.iter().filter(|f| f.severity == Severity::Pass).count();
     let warn = findings.iter().filter(|f| f.severity == Severity::Warn).count();
     let fail = findings.iter().filter(|f| f.severity == Severity::Fail).count();
@@ -1028,11 +1237,36 @@ fn print_console_report(findings: &[Finding], runtime: &[RunResult], score: u32,
         println!("=== Runtime Summary ===");
         for r in runtime {
             println!(
-                "{} | exit={:?} | timeout={} | {} ms | stdout={}B | stderr={}B",
-                r.scenario, r.exit_code, r.timed_out, r.duration_ms, r.stdout_len, r.stderr_len
+                "{} | exit={:?} | timeout={} | {} ms | stdout={}B | stderr={}B | reason={}",
+                r.scenario,
+                r.exit_code,
+                r.timed_out,
+                r.duration_ms,
+                r.stdout_len,
+                r.stderr_len,
+                r.failure_reason
             );
         }
     }
+
+    println!();
+    println!("=== Security-Lab Coverage ===");
+    println!(
+        "profile={} enabled={} custom={} confirm_required={}",
+        telemetry.profile,
+        telemetry.enabled,
+        telemetry.custom_selection,
+        telemetry.confirmation_required
+    );
+    println!(
+        "disasm={} symbolic={} taint={} business={} fuzz_cases={} runtime_traces={}",
+        telemetry.coverage.disassembly_signals,
+        telemetry.coverage.symbolic_signals,
+        telemetry.coverage.taint_paths,
+        telemetry.coverage.business_risks,
+        telemetry.coverage.fuzz_cases,
+        telemetry.coverage.runtime_traces
+    );
 
     println!();
     println!("=== Totals ===");
@@ -1045,6 +1279,7 @@ fn write_report_files(
     config: &Config,
     findings: &[Finding],
     runtime: &[RunResult],
+    telemetry: &security_lab::SecurityLabTelemetry,
     score: u32,
     final_status: Severity,
 ) -> anyhow::Result<(PathBuf, PathBuf, PathBuf)> {
@@ -1068,8 +1303,11 @@ fn write_report_files(
 
     let mut full = String::new();
     full.push_str("=== EXE Analyzer v2 (Rust) ===\n");
+    full.push_str("Schema: 2.0\n");
     full.push_str(&format!("Target: {}\n", config.exe_path.display()));
+    full.push_str(&format!("AnalysisMode: {}\n", config.analysis_mode.as_str()));
     full.push_str(&format!("Mode: {}\n", config.mode.as_str()));
+    full.push_str(&format!("SecurityLab profile: {}\n", telemetry.profile));
     full.push_str(&format!("Score: {}\n", score));
     full.push_str(&format!("Final: {}\n\n", final_status.as_str()));
     full.push_str("=== Findings ===\n");
@@ -1086,14 +1324,44 @@ fn write_report_files(
     full.push_str("\n=== Runtime ===\n");
     for r in runtime {
         full.push_str(&format!(
-            "{} | exit={:?} | timeout={} | {} ms | stdout={}B | stderr={}B\n",
-            r.scenario, r.exit_code, r.timed_out, r.duration_ms, r.stdout_len, r.stderr_len
+            "{} | exit={:?} | timeout={} | {} ms | stdout={}B | stderr={}B | reason={}\n",
+            r.scenario,
+            r.exit_code,
+            r.timed_out,
+            r.duration_ms,
+            r.stdout_len,
+            r.stderr_len,
+            r.failure_reason
         ));
     }
 
+    full.push_str("\n=== Security-Lab Modules ===\n");
+    for module in &telemetry.selected_modules {
+        full.push_str(&format!(
+            "{} | {} | {} | {} | {}\n",
+            module.id,
+            module.category,
+            module.status,
+            module.reason,
+            module.capabilities.join("; ")
+        ));
+    }
+    full.push_str(&format!(
+        "coverage: disasm={} symbolic={} taint={} business={} fuzz_cases={} runtime_traces={}\n",
+        telemetry.coverage.disassembly_signals,
+        telemetry.coverage.symbolic_signals,
+        telemetry.coverage.taint_paths,
+        telemetry.coverage.business_risks,
+        telemetry.coverage.fuzz_cases,
+        telemetry.coverage.runtime_traces
+    ));
+    full.push_str(&format!("next: {}\n", telemetry.recommended_next_step));
+
     let mut issues = String::new();
     issues.push_str("=== EXE Analyzer v2 Issues ===\n");
+    issues.push_str("Schema: 2.0\n");
     issues.push_str(&format!("Target: {}\n", config.exe_path.display()));
+    issues.push_str(&format!("AnalysisMode: {}\n", config.analysis_mode.as_str()));
     issues.push_str(&format!("Mode: {}\n", config.mode.as_str()));
     issues.push_str(&format!("Score: {} | Final: {}\n\n", score, final_status.as_str()));
     for f in findings {
@@ -1114,13 +1382,16 @@ fn write_report_files(
         .with_context(|| format!("Write issues log failed: {}", issues_log.display()))?;
 
     let report = Report {
+        schema_version: "2.0".to_string(),
         target: config.exe_path.display().to_string(),
         generated_unix: current_unix(),
+        analysis_mode: config.analysis_mode,
         mode: config.mode,
         score,
         final_status,
         findings: findings.to_vec(),
         runtime: runtime.to_vec(),
+        telemetry: telemetry.clone(),
     };
 
     let json = serde_json::to_string_pretty(&report).context("Serialize JSON report failed")?;

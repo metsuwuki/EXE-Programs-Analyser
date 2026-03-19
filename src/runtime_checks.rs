@@ -74,6 +74,7 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
             timeout_secs: config.timeout_secs.min(3),
         },
         RuntimeScenario {
+<<<<<<< HEAD
             name: "very_long_unicode_arg".to_string(),
             args: vec!["Ю".repeat(2048)],
             stdin_payload: String::new(),
@@ -88,6 +89,8 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
             timeout_secs: config.timeout_secs.min(3),
         },
         RuntimeScenario {
+=======
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
             name: "arg_shell_like".to_string(),
             args: vec!["&|<>^%".to_string()],
             stdin_payload: String::new(),
@@ -113,8 +116,40 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
         },
     ];
 
+<<<<<<< HEAD
     scenarios.extend(build_fuzz_scenarios(config));
 
+=======
+    if config.analysis_mode == AnalysisMode::Pentest {
+        scenarios.push(RuntimeScenario {
+            name: "very_long_unicode_arg".to_string(),
+            args: vec!["Ю".repeat(2048)],
+            stdin_payload: String::new(),
+            clear_env: false,
+            timeout_secs: config.timeout_secs.min(4),
+        });
+        scenarios.push(RuntimeScenario {
+            name: "stdin_long_payload".to_string(),
+            args: vec![],
+            stdin_payload: "X".repeat(12000),
+            clear_env: false,
+            timeout_secs: config.timeout_secs.min(3),
+        });
+    }
+
+    scenarios.extend(build_fuzz_scenarios(config));
+
+    if config.analysis_mode == AnalysisMode::Pentest && config.confirm_extended_tests {
+        scenarios.push(RuntimeScenario {
+            name: "pentest_env_minimal".to_string(),
+            args: vec!["--help".to_string()],
+            stdin_payload: "PING\n".to_string(),
+            clear_env: true,
+            timeout_secs: config.timeout_secs.min(5),
+        });
+    }
+
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     if config.runs > scenarios.len() as u32 {
         for idx in (scenarios.len() as u32 + 1)..=config.runs {
             scenarios.push(RuntimeScenario {
@@ -132,6 +167,19 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
 }
 
 fn build_fuzz_scenarios(config: &Config) -> Vec<RuntimeScenario> {
+<<<<<<< HEAD
+=======
+    if config.analysis_mode == AnalysisMode::Min {
+        return vec![RuntimeScenario {
+            name: "fuzz_ascii_stdin".to_string(),
+            args: vec![],
+            stdin_payload: generate_fuzz_ascii(2048, 0xA51C_9331),
+            clear_env: false,
+            timeout_secs: config.timeout_secs.min(2),
+        }];
+    }
+
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     match config.fuzz_engine {
         FuzzEngine::Native => native_fuzz_scenarios(config),
         FuzzEngine::LibAfl => libafl_style_fuzz_scenarios(config),
@@ -190,6 +238,23 @@ fn run_single_runtime_scenario(
 ) -> Option<RunResult> {
     println!("[SCENARIO] start {}", scenario.name);
     let start = Instant::now();
+<<<<<<< HEAD
+=======
+    let started_unix = current_unix();
+    let mut trace_events = Vec::new();
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: 0,
+        stage: "scenario_start".to_string(),
+        detail: format!(
+            "args={} stdin_bytes={} clear_env={} timeout={}s",
+            scenario.args.len(),
+            scenario.stdin_payload.len(),
+            scenario.clear_env,
+            scenario.timeout_secs
+        ),
+    });
+
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     let mut command = Command::new(&config.exe_path);
     command
         .args(&scenario.args)
@@ -198,6 +263,20 @@ fn run_single_runtime_scenario(
         .stderr(Stdio::piped());
     if scenario.clear_env {
         command.env_clear();
+<<<<<<< HEAD
+=======
+        trace_events.push(RuntimeTraceEvent {
+            at_ms: start.elapsed().as_millis(),
+            stage: "sandbox_policy".to_string(),
+            detail: "environment variables cleared".to_string(),
+        });
+    } else {
+        trace_events.push(RuntimeTraceEvent {
+            at_ms: start.elapsed().as_millis(),
+            stage: "sandbox_policy".to_string(),
+            detail: "environment inherited".to_string(),
+        });
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     }
 
     let mut child = match command.spawn() {
@@ -214,12 +293,40 @@ fn run_single_runtime_scenario(
         }
     };
 
+<<<<<<< HEAD
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(scenario.stdin_payload.as_bytes());
+=======
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: start.elapsed().as_millis(),
+        stage: "process_spawned".to_string(),
+        detail: format!("pid={}", child.id()),
+    });
+
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(scenario.stdin_payload.as_bytes());
+        trace_events.push(RuntimeTraceEvent {
+            at_ms: start.elapsed().as_millis(),
+            stage: "stdin_written".to_string(),
+            detail: format!("bytes={}", scenario.stdin_payload.len()),
+        });
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     }
 
     let timeout = Duration::from_secs(scenario.timeout_secs.max(1));
     let timed_out = wait_with_timeout(&mut child, timeout, start, &scenario.name, findings)?;
+<<<<<<< HEAD
+=======
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: start.elapsed().as_millis(),
+        stage: "wait_finished".to_string(),
+        detail: if timed_out {
+            "timed_out=true".to_string()
+        } else {
+            "timed_out=false".to_string()
+        },
+    });
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 
     let output = match child.wait_with_output() {
         Ok(o) => o,
@@ -235,13 +342,29 @@ fn run_single_runtime_scenario(
         }
     };
 
+<<<<<<< HEAD
+=======
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: start.elapsed().as_millis(),
+        stage: "output_captured".to_string(),
+        detail: format!("stdout={}B stderr={}B", output.stdout.len(), output.stderr.len()),
+    });
+
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     let duration_ms = start.elapsed().as_millis();
     let exit_code = output.status.code();
     let stdout_len = output.stdout.len();
     let stderr_len = output.stderr.len();
+<<<<<<< HEAD
     let stderr_text = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
 
     push_runtime_findings(
+=======
+    let stdout_text = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr_text = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+
+    let failure_reason = push_runtime_findings(
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
         scenario,
         exit_code,
         timed_out,
@@ -250,6 +373,17 @@ fn run_single_runtime_scenario(
         findings,
     );
 
+<<<<<<< HEAD
+=======
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: duration_ms,
+        stage: "scenario_finish".to_string(),
+        detail: format!("exit={:?} reason={}", exit_code, failure_reason),
+    });
+
+    let finished_unix = current_unix();
+
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     Some(RunResult {
         scenario: scenario.name.clone(),
         exit_code,
@@ -257,6 +391,32 @@ fn run_single_runtime_scenario(
         duration_ms,
         stdout_len,
         stderr_len,
+<<<<<<< HEAD
+=======
+        failure_reason,
+        trace: RuntimeTrace {
+            scenario_kind: scenario_kind(&scenario.name).to_string(),
+            sandbox_profile: if scenario.clear_env {
+                "isolated_env".to_string()
+            } else {
+                "baseline".to_string()
+            },
+            env_policy: if scenario.clear_env {
+                "env_clear".to_string()
+            } else {
+                "inherit".to_string()
+            },
+            working_dir: std::env::current_dir()
+                .ok()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<unknown>".to_string()),
+            started_unix,
+            finished_unix,
+            events: trace_events,
+            stdout_preview: preview_text(&stdout_text, 320),
+            stderr_preview: preview_text(&String::from_utf8_lossy(&output.stderr), 320),
+        },
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     })
 }
 
@@ -301,7 +461,25 @@ fn push_runtime_findings(
     stderr_len: usize,
     stderr_text: &str,
     findings: &mut Vec<Finding>,
+<<<<<<< HEAD
 ) {
+=======
+) -> String {
+    let mut reason = if timed_out {
+        format!("timeout {}s exceeded", scenario.timeout_secs)
+    } else if let Some(code) = exit_code {
+        if is_windows_crash_exit(code) {
+            format!("windows crash code {:#X}", code as u32)
+        } else if code == 0 {
+            "clean exit code 0".to_string()
+        } else {
+            format!("non-zero exit code {}", code)
+        }
+    } else {
+        "process exited without normal code".to_string()
+    };
+
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
     if timed_out {
         findings.push(finding(
             Severity::Fail,
@@ -353,6 +531,12 @@ fn push_runtime_findings(
     }
 
     if stderr_len > 0 {
+<<<<<<< HEAD
+=======
+        if reason == "clean exit code 0" {
+            reason = format!("stderr output {} bytes", stderr_len);
+        }
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
         findings.push(finding(
             Severity::Warn,
             "RUNTIME_STDERR_OUTPUT",
@@ -367,6 +551,10 @@ fn push_runtime_findings(
             || stderr_text.contains("access violation")
             || stderr_text.contains("fatal")
         {
+<<<<<<< HEAD
+=======
+            reason = "crash signature found in stderr".to_string();
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
             findings.push(finding(
                 Severity::Fail,
                 "RUNTIME_CRASH_SIGNATURE",
@@ -379,6 +567,31 @@ fn push_runtime_findings(
             ));
         }
     }
+<<<<<<< HEAD
+=======
+
+    reason
+}
+
+fn scenario_kind(name: &str) -> &'static str {
+    if name.contains("fuzz") {
+        "fuzz"
+    } else if name.contains("arg") || name.contains("stdin") {
+        "input-stress"
+    } else if name.contains("env") {
+        "sandbox-env"
+    } else {
+        "baseline"
+    }
+}
+
+fn preview_text(text: &str, max_chars: usize) -> String {
+    let cleaned = text.replace('\n', "\\n").replace('\r', "");
+    if cleaned.chars().count() <= max_chars {
+        return cleaned;
+    }
+    cleaned.chars().take(max_chars).collect::<String>() + "..."
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 }
 
 fn fuzz_next(seed: &mut u64) -> u64 {

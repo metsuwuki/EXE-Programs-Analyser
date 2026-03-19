@@ -17,6 +17,36 @@ if errorlevel 1 (
   exit /b 1
 )
 
+<<<<<<< HEAD
 echo [3/3] Done.
 echo Artifacts: "%~dp0dist\EXE_Analyzer"
+=======
+echo [3/4] Build setup installer (optional if Inno Setup is installed)...
+call "%~dp0build_setup.cmd" --skip-portable
+if errorlevel 1 (
+  echo [WARN] Setup build skipped. Portable artifact is ready.
+  echo [WARN] Install Inno Setup and run build_setup.cmd to produce Metsuki_EXE_Analyzer_Setup_*.exe
+)
+
+echo [4/4] Done.
+echo Portable: "%~dp0dist\EXE_Analyzer"
+echo Setup:    "%~dp0dist\Metsuki_EXE_Analyzer_Setup_*.exe"
+
+REM Handle --sign and --skip-setup flags
+set "PS_ARGS="
+
+if /i "%~1"=="--sign" (
+  set "PS_ARGS=-Sign"
+) else if /i "%~1"=="--skip-setup" (
+  set "PS_ARGS=-SkipSetup"
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build_release.ps1" %PS_ARGS%
+if errorlevel 1 (
+  echo [ERROR] build_release.ps1 failed.
+  exit /b 1
+)
+
+echo [DONE] Artifacts are in "%~dp0dist"
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
 exit /b 0

@@ -1,5 +1,45 @@
+<<<<<<< HEAD
 /target
 **/*.rs.bk
 /logs/*
 /dist/*
 /publish/*
+=======
+# Rust build outputs
+/target/
+
+# Project artifacts
+/dist/
+/logs/
+/Auto Setup/
+
+# Runtime WebView caches (can appear in local runs)
+*.WebView2/
+EBWebView/
+
+# Installer-generated visuals
+/installer/assets/*.bmp
+
+# Temp and logs
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# Rust backup files
+**/*.rs.bk
+
+# IDE/editor
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/tasks.json
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+>>>>>>> 4eb762c97ad4a0321ba84566b2eef38064581585
