@@ -125,3 +125,6 @@ release_artifacts.cmd
 
 - Keep source and scripts in Git: `src/`, `scripts/`, `installer/`, `webui/`, `assets/`
 - Do not commit generated outputs: `target/`, `dist/`, runtime logs
+
+<p align="center"><sub>Made by Metsuwuki</sub></p>
+
