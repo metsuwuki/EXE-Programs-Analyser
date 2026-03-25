@@ -24,6 +24,21 @@
 
 ---
 
+## 👨‍💻 What It Can Actually Do (No Buzzwords)
+
+- Takes your `.exe` through a 4-phase pipeline: static checks, runtime scenarios, security modules, and a final report.
+- Static analysis is more than "is this a PE": it inspects sections, imports, mitigations (ASLR/DEP/CFG), suspicious patterns, and risk indicators.
+- Runtime analysis stresses the target with intentionally rough inputs: empty stdin, noisy stdin, long args, unicode, shell-like symbols, broken paths, clean env.
+- Tracks useful engineering metrics: exit codes, timeouts, duration (p50/p95), run stability, and flakiness.
+- Produces structured findings with severity + score, so results are readable in UI and easy to consume in CI/automation.
+- Supports both `MIN` and `PENTEST` modes: quick/safe when needed, deeper/aggressive when required.
+- Security Lab modules can be enabled by profile or manually: PE rules, ASM heuristics, taint/dataflow, runtime trace, fuzzing, regression checks.
+- Includes both a desktop UI for hands-on work and a CLI for scripts/pipelines, no forced trade-off.
+- Includes a teacher/audit batch flow: provide an assignment JSON, get bulk analysis, summary JSON/CSV, and rerun cmd.
+- Ships as both a portable build and a setup installer, so you can run it instantly or deploy it properly.
+
+---
+
 ## 📦 What Is Included
 
 - `exe_tester_web_gui.exe`: desktop WebView-based UI host
@@ -125,6 +140,3 @@ release_artifacts.cmd
 
 - Keep source and scripts in Git: `src/`, `scripts/`, `installer/`, `webui/`, `assets/`
 - Do not commit generated outputs: `target/`, `dist/`, runtime logs
-
-<p align="center"><sub>Made by Metsuwuki</sub></p>
-

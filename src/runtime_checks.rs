@@ -21,6 +21,17 @@ pub(crate) fn run_runtime_checks(config: &Config, findings: &mut Vec<Finding>) -
     }
 
     let scenarios = build_runtime_scenarios(config);
+    if let Some(name) = &config.only_scenario {
+        if scenarios.is_empty() {
+            findings.push(finding(
+                Severity::Warn,
+                "RUNTIME_SCENARIO_NOT_FOUND",
+                "runtime",
+                4,
+                format!("Requested scenario '{}' was not found; runtime execution skipped.", name),
+            ));
+        }
+    }
     let mut results = Vec::with_capacity(scenarios.len());
 
     for scenario in scenarios {
@@ -140,6 +151,10 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
         }
     }
 
+    if let Some(name) = &config.only_scenario {
+        scenarios.retain(|s| s.name.eq_ignore_ascii_case(name));
+    }
+
     scenarios.truncate(config.runs as usize);
     scenarios
 }
@@ -227,13 +242,17 @@ fn run_single_runtime_scenario(
         ),
     });
 
+    let working_dir = prepare_runtime_working_dir(config, &scenario.name, findings)?;
+    let effective_clear_env = scenario.clear_env || config.sandbox_profile == SandboxProfile::Isolated;
+
     let mut command = Command::new(&config.exe_path);
     command
         .args(&scenario.args)
+        .current_dir(&working_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if scenario.clear_env {
+    if effective_clear_env {
         command.env_clear();
         trace_events.push(RuntimeTraceEvent {
             at_ms: start.elapsed().as_millis(),
@@ -247,6 +266,11 @@ fn run_single_runtime_scenario(
             detail: "environment inherited".to_string(),
         });
     }
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: start.elapsed().as_millis(),
+        stage: "working_dir".to_string(),
+        detail: working_dir.display().to_string(),
+    });
 
     let mut child = match command.spawn() {
         Ok(c) => c,
@@ -343,20 +367,13 @@ fn run_single_runtime_scenario(
         failure_reason,
         trace: RuntimeTrace {
             scenario_kind: scenario_kind(&scenario.name).to_string(),
-            sandbox_profile: if scenario.clear_env {
-                "isolated_env".to_string()
-            } else {
-                "baseline".to_string()
-            },
-            env_policy: if scenario.clear_env {
+            sandbox_profile: config.sandbox_profile.as_str().to_string(),
+            env_policy: if effective_clear_env {
                 "env_clear".to_string()
             } else {
                 "inherit".to_string()
             },
-            working_dir: std::env::current_dir()
-                .ok()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| "<unknown>".to_string()),
+            working_dir: working_dir.display().to_string(),
             started_unix,
             finished_unix,
             events: trace_events,
@@ -364,6 +381,47 @@ fn run_single_runtime_scenario(
             stderr_preview: preview_text(&String::from_utf8_lossy(&output.stderr), 320),
         },
     })
+}
+
+fn prepare_runtime_working_dir(
+    config: &Config,
+    scenario_name: &str,
+    findings: &mut Vec<Finding>,
+) -> Option<PathBuf> {
+    if config.sandbox_profile == SandboxProfile::None {
+        return std::env::current_dir().ok();
+    }
+
+    let base = std::env::temp_dir().join("metsuki_runtime");
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let safe = scenario_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    let dir = base.join(format!("{}_{}", safe, now));
+
+    if fs::create_dir_all(&dir).is_ok() {
+        Some(dir)
+    } else {
+        findings.push(finding(
+            Severity::Warn,
+            "SANDBOX_WORKDIR_FALLBACK",
+            "runtime",
+            3,
+            "Sandbox working directory creation failed; falling back to current directory.",
+        ));
+        std::env::current_dir().ok()
+    }
 }
 
 fn wait_with_timeout(

@@ -73,9 +73,19 @@ struct AppState {
 struct RunAnalysisPayload {
     target_path: String,
     mode: String,
+    #[serde(default)]
+    verdict_mode: Option<String>,
+    #[serde(default)]
+    power_profile: Option<String>,
+    #[serde(default)]
+    sandbox_profile: Option<String>,
     runs: u32,
     timeout_secs: u64,
     out_dir: String,
+    #[serde(default)]
+    assignment_path: Option<String>,
+    #[serde(default)]
+    audit_dir: Option<String>,
     #[serde(default)]
     confirm_pentest: bool,
 }
@@ -93,6 +103,16 @@ struct ListReportsPayload {
 #[derive(Debug, Deserialize)]
 struct OpenReportPayload {
     path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DetectTargetTypePayload {
+    path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReportLogsPayload {
+    report_path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,7 +163,19 @@ fn run_app() -> Result<(), String> {
         .map_err(|e| format!("window creation failed: {}", e))?;
 
     let logo_uri = resolve_logo_uri();
-    let html = include_str!("../../webui/index.html").replace("..\\assets\\logo.png", &logo_uri);
+    let html = include_str!("../../webui/index.html")
+        .replace("__INLINE_CSS__", include_str!("../../webui/styles.css"))
+        .replace(
+            "__INLINE_JS__",
+            concat!(
+                include_str!("../../webui/js/01_i18n.js"),
+                "\n",
+                include_str!("../../webui/js/02_core.js"),
+                "\n",
+                include_str!("../../webui/js/03_app.js")
+            ),
+        )
+        .replace("..\\assets\\logo.png", &logo_uri);
     let proxy_for_ipc = proxy.clone();
     let webview_builder = WebViewBuilder::new()
         .with_html(html)
@@ -311,42 +343,11 @@ fn handle_ipc(
                 Err(e) => Err(format!("settings payload is invalid: {}", e)),
             }
         }
-        "list_reports" => {
-            let payload: Result<ListReportsPayload, _> = serde_json::from_value(req.payload.clone());
-            match payload {
-                Ok(v) => {
-                    let out_dir = if v.out_dir.trim().is_empty() {
-                        PathBuf::from("logs")
-                    } else {
-                        PathBuf::from(v.out_dir)
-                    };
-                    let rows = core::list_reports(&out_dir);
-                    state.last_reports = rows.clone();
-                    Ok(json!(rows))
-                }
-                Err(e) => Err(format!("list_reports payload invalid: {}", e)),
-            }
-        }
-        "open_report" => {
-            let payload: Result<OpenReportPayload, _> = serde_json::from_value(req.payload.clone());
-            match payload {
-                Ok(v) => core::read_report_json(Path::new(&v.path)),
-                Err(e) => Err(format!("open_report payload invalid: {}", e)),
-            }
-        }
-        "open_path" => {
-            let payload: Result<OpenPathPayload, _> = serde_json::from_value(req.payload.clone());
-            match payload {
-                Ok(v) => {
-                    if v.path.trim().is_empty() {
-                        Err("path is empty".to_string())
-                    } else {
-                        core::open_path_in_explorer(Path::new(&v.path)).map(|_| json!({"opened": true}))
-                    }
-                }
-                Err(e) => Err(format!("open_path payload invalid: {}", e)),
-            }
-        }
+        "list_reports" => handle_list_reports(state, req.payload.clone()),
+        "open_report" => handle_open_report(req.payload.clone()),
+        "list_logs_for_report" => handle_list_logs_for_report(req.payload.clone()),
+        "open_path" => handle_open_path(req.payload.clone()),
+        "detect_target_type" => handle_detect_target_type(req.payload.clone()),
         "pick_target" => pick_target_file(),
         "tools_status" => Ok(tools_status(&state.settings)),
         "run_analysis" => {
@@ -407,9 +408,83 @@ fn handle_ipc(
     send_to_webview(webview, &envelope);
 }
 
+fn handle_list_reports(state: &mut AppState, payload_value: Value) -> Result<Value, String> {
+    let payload: Result<ListReportsPayload, _> = serde_json::from_value(payload_value);
+    match payload {
+        Ok(v) => {
+            let out_dir = if v.out_dir.trim().is_empty() {
+                PathBuf::from("logs")
+            } else {
+                PathBuf::from(v.out_dir)
+            };
+            let rows = core::list_reports(&out_dir);
+            state.last_reports = rows.clone();
+            Ok(json!(rows))
+        }
+        Err(e) => Err(format!("list_reports payload invalid: {}", e)),
+    }
+}
+
+fn handle_open_report(payload_value: Value) -> Result<Value, String> {
+    let payload: Result<OpenReportPayload, _> = serde_json::from_value(payload_value);
+    match payload {
+        Ok(v) => core::read_report_json(Path::new(&v.path)),
+        Err(e) => Err(format!("open_report payload invalid: {}", e)),
+    }
+}
+
+fn handle_list_logs_for_report(payload_value: Value) -> Result<Value, String> {
+    let payload: Result<ReportLogsPayload, _> = serde_json::from_value(payload_value);
+    match payload {
+        Ok(v) => {
+            let report_path = PathBuf::from(v.report_path.trim());
+            if !report_path.exists() {
+                Err("report file was not found".to_string())
+            } else {
+                let (full_log, issues_log) = core::list_logs_for_report(&report_path);
+                Ok(json!({
+                    "json_report": report_path.display().to_string(),
+                    "full_log": full_log,
+                    "issues_log": issues_log,
+                }))
+            }
+        }
+        Err(e) => Err(format!("list_logs_for_report payload invalid: {}", e)),
+    }
+}
+
+fn handle_open_path(payload_value: Value) -> Result<Value, String> {
+    let payload: Result<OpenPathPayload, _> = serde_json::from_value(payload_value);
+    match payload {
+        Ok(v) => {
+            if v.path.trim().is_empty() {
+                Err("path is empty".to_string())
+            } else {
+                core::open_path_in_explorer(Path::new(&v.path)).map(|_| json!({"opened": true}))
+            }
+        }
+        Err(e) => Err(format!("open_path payload invalid: {}", e)),
+    }
+}
+
+fn handle_detect_target_type(payload_value: Value) -> Result<Value, String> {
+    let payload: Result<DetectTargetTypePayload, _> = serde_json::from_value(payload_value);
+    match payload {
+        Ok(v) => {
+            let path = PathBuf::from(v.path.trim());
+            let info = core::detect_target_type(&path);
+            Ok(json!({
+                "kind": info.kind,
+                "language": info.language,
+            }))
+        }
+        Err(e) => Err(format!("detect_target_type payload invalid: {}", e)),
+    }
+}
+
 fn pick_target_file() -> Result<Value, String> {
     let dialog = rfd::FileDialog::new()
-        .add_filter("Executable files", &["exe", "com", "bat", "cmd", "ps1", "scr"])
+        .add_filter("Executable files", &["exe"])
         .set_title("Choose target program");
 
     match dialog.pick_file() {
@@ -443,38 +518,32 @@ fn start_analysis(
         "cannot resolve analyzer core executable. Expected .engine/analyzer_core.exe or exe_tester.exe".to_string()
     })?;
 
-    let mode = parse_mode(&payload.mode);
-    if mode == AnalysisMode::Pentest && !payload.confirm_pentest {
+    let run_plan = resolve_run_plan(&payload, &state.settings);
+    if run_plan.mode == AnalysisMode::Pentest && !payload.confirm_pentest {
         return Err("PENTEST mode requires explicit opt-in: enable 'confirm pentest extended tests'".to_string());
     }
+
+    let _ = proxy.send_event(UserEvent::AnalysisLog(format!(
+        "[profile] power={} verdict={} sandbox={}",
+        run_plan.profile, run_plan.verdict_mode, run_plan.sandbox_profile
+    )));
 
     let cancel = Arc::new(AtomicBool::new(false));
     let cancel_for_worker = Arc::clone(&cancel);
     let target_for_worker = target.clone();
     let out_dir_for_worker = out_dir.clone();
+    let assignment_for_worker = payload.assignment_path.clone();
+    let audit_dir_for_worker = payload.audit_dir.clone();
 
     thread::spawn(move || {
-        let mut command = Command::new(cli_path);
-        command
-            .arg(&target_for_worker)
-            .arg("--timeout")
-            .arg(payload.timeout_secs.max(1).to_string())
-            .arg("--runs")
-            .arg(payload.runs.max(1).to_string())
-            .arg("--out-dir")
-            .arg(&out_dir_for_worker)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        match mode {
-            AnalysisMode::Min => {
-                command.arg("--mode-min");
-            }
-            AnalysisMode::Pentest => {
-                command.arg("--mode-pentest");
-                command.arg("--confirm-extended-tests");
-            }
-        }
+        let mut command = build_analysis_command(
+            cli_path,
+            &target_for_worker,
+            &out_dir_for_worker,
+            run_plan,
+            assignment_for_worker.as_deref(),
+            audit_dir_for_worker.as_deref(),
+        );
 
         #[cfg(windows)]
         {
@@ -559,25 +628,7 @@ fn launch_scenario_rerun(
     let cli_path = core::resolve_cli_path().ok_or_else(|| "cannot resolve analyzer core executable".to_string())?;
 
     thread::spawn(move || {
-        let mut command = Command::new(cli_path);
-        command
-            .arg(&target)
-            .arg("--timeout")
-            .arg("4")
-            .arg("--runs")
-            .arg("1")
-            .arg("--out-dir")
-            .arg("logs");
-
-        match mode {
-            AnalysisMode::Min => {
-                command.arg("--mode-min");
-            }
-            AnalysisMode::Pentest => {
-                command.arg("--mode-pentest");
-                command.arg("--confirm-extended-tests");
-            }
-        }
+        let mut command = build_rerun_command(cli_path, &target, mode, &scenario);
 
         #[cfg(windows)]
         {
@@ -635,6 +686,15 @@ fn create_repro_bundle(payload: ReproBundlePayload) -> Result<Value, String> {
     fs::copy(&report_path, &report_copy).map_err(|e| format!("cannot copy report: {}", e))?;
 
     let rerun_cmd = bundle_dir.join("rerun.cmd");
+    let mode = payload.mode.to_ascii_uppercase();
+    let mut rerun_line = format!(
+        "echo cargo run --bin exe_tester -- \"{}\" --mode-{}",
+        payload.target_path,
+        payload.mode.to_ascii_lowercase()
+    );
+    if mode == "PENTEST" {
+        rerun_line.push_str(" --confirm-extended-tests");
+    }
     let lines = [
         "@echo off".to_string(),
         "setlocal".to_string(),
@@ -642,11 +702,7 @@ fn create_repro_bundle(payload: ReproBundlePayload) -> Result<Value, String> {
         format!("REM target: {}", payload.target_path),
         format!("REM mode: {}", payload.mode),
         "echo Run this command in repository root:".to_string(),
-        format!(
-            "echo cargo run --bin exe_tester -- \"{}\" --mode-{} --confirm-extended-tests",
-            payload.target_path,
-            payload.mode.to_ascii_lowercase()
-        ),
+        rerun_line,
     ];
     fs::write(&rerun_cmd, lines.join("\r\n")).map_err(|e| format!("cannot write rerun.cmd: {}", e))?;
 
@@ -661,31 +717,230 @@ fn tools_status(settings: &AppSettings) -> Value {
         .vsdbg_path
         .as_ref()
         .filter(|p| !p.trim().is_empty())
-        .map(|p| {
-            if Path::new(p).exists() {
-                "ready"
-            } else {
-                "configured-missing"
-            }
-        })
-        .unwrap_or("not-configured");
+        .map(|p| if Path::new(p).exists() { "configured" } else { "not configured" })
+        .unwrap_or("unknown");
 
     let linters_status = if settings.linter_paths.is_empty() {
-        "not-configured"
+        "unknown"
     } else if settings
         .linter_paths
         .iter()
         .all(|p| !p.trim().is_empty() && Path::new(p).exists())
     {
-        "ready"
+        "configured"
     } else {
-        "partial"
+        "not configured"
     };
 
     json!({
         "vsdbg": vsdbg_status,
         "linters": linters_status,
     })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RunPlan {
+    profile: &'static str,
+    mode: AnalysisMode,
+    verdict_mode: &'static str,
+    runs: u32,
+    timeout_secs: u64,
+    sandbox_profile: &'static str,
+}
+
+fn resolve_run_plan(payload: &RunAnalysisPayload, settings: &AppSettings) -> RunPlan {
+    let profile = normalize_power_profile(
+        payload
+            .power_profile
+            .as_deref()
+            .unwrap_or(&settings.power_profile),
+    );
+    let defaults = profile_defaults(profile);
+
+    RunPlan {
+        profile,
+        mode: parse_mode_or_default(&payload.mode, defaults.mode),
+        verdict_mode: normalize_verdict_mode(
+            payload
+                .verdict_mode
+                .as_deref()
+                .unwrap_or(defaults.verdict_mode),
+        ),
+        runs: if payload.runs == 0 {
+            defaults.runs
+        } else {
+            payload.runs
+        },
+        timeout_secs: if payload.timeout_secs == 0 {
+            defaults.timeout_secs
+        } else {
+            payload.timeout_secs
+        },
+        sandbox_profile: normalize_sandbox_profile(
+            payload
+                .sandbox_profile
+                .as_deref()
+                .unwrap_or(defaults.sandbox_profile),
+        ),
+    }
+}
+
+fn build_analysis_command(
+    cli_path: PathBuf,
+    target: &Path,
+    out_dir: &Path,
+    plan: RunPlan,
+    assignment_path: Option<&str>,
+    audit_dir: Option<&str>,
+) -> Command {
+    let mut command = Command::new(cli_path);
+    command
+        .arg(target)
+        .arg("--timeout")
+        .arg(plan.timeout_secs.max(1).to_string())
+        .arg("--runs")
+        .arg(plan.runs.max(1).to_string())
+        .arg("--sandbox-profile")
+        .arg(plan.sandbox_profile)
+        .arg("--out-dir")
+        .arg(out_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    append_mode_args(&mut command, plan.mode);
+    append_verdict_args(&mut command, plan.verdict_mode);
+
+    if let Some(p) = assignment_path {
+        if !p.trim().is_empty() {
+            command.arg("--assignment").arg(p.trim());
+        }
+    }
+    if let Some(p) = audit_dir {
+        if !p.trim().is_empty() {
+            command.arg("--audit-dir").arg(p.trim());
+        }
+    }
+
+    command
+}
+
+fn build_rerun_command(cli_path: PathBuf, target: &Path, mode: AnalysisMode, scenario: &str) -> Command {
+    let sandbox = if mode == AnalysisMode::Pentest {
+        "isolated"
+    } else {
+        "limited"
+    };
+
+    let mut command = Command::new(cli_path);
+    command
+        .arg(target)
+        .arg("--timeout")
+        .arg("4")
+        .arg("--runs")
+        .arg("1")
+        .arg("--only-scenario")
+        .arg(scenario)
+        .arg("--sandbox-profile")
+        .arg(sandbox)
+        .arg("--out-dir")
+        .arg("logs");
+
+    append_mode_args(&mut command, mode);
+    command
+}
+
+fn append_mode_args(command: &mut Command, mode: AnalysisMode) {
+    match mode {
+        AnalysisMode::Min => {
+            command.arg("--mode-min");
+        }
+        AnalysisMode::Pentest => {
+            command.arg("--mode-pentest");
+            command.arg("--confirm-extended-tests");
+        }
+    }
+}
+
+fn append_verdict_args(command: &mut Command, verdict_mode: &str) {
+    if verdict_mode == "STRICT" {
+        command.arg("--strict");
+    } else {
+        command.arg("--balanced");
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ProfileDefaults {
+    mode: AnalysisMode,
+    verdict_mode: &'static str,
+    runs: u32,
+    timeout_secs: u64,
+    sandbox_profile: &'static str,
+}
+
+fn profile_defaults(profile: &str) -> ProfileDefaults {
+    match profile {
+        "AUDIT" => ProfileDefaults {
+            mode: AnalysisMode::Min,
+            verdict_mode: "BALANCED",
+            runs: 8,
+            timeout_secs: 5,
+            sandbox_profile: "limited",
+        },
+        "PENTEST" => ProfileDefaults {
+            mode: AnalysisMode::Pentest,
+            verdict_mode: "STRICT",
+            runs: 10,
+            timeout_secs: 6,
+            sandbox_profile: "isolated",
+        },
+        "EXTREME" => ProfileDefaults {
+            mode: AnalysisMode::Pentest,
+            verdict_mode: "STRICT",
+            runs: 12,
+            timeout_secs: 8,
+            sandbox_profile: "isolated",
+        },
+        _ => ProfileDefaults {
+            mode: AnalysisMode::Min,
+            verdict_mode: "BALANCED",
+            runs: 4,
+            timeout_secs: 4,
+            sandbox_profile: "limited",
+        },
+    }
+}
+
+fn parse_mode_or_default(input: &str, default_mode: AnalysisMode) -> AnalysisMode {
+    let raw = input.trim();
+    if raw.is_empty() {
+        return default_mode;
+    }
+    parse_mode(raw)
+}
+
+fn normalize_verdict_mode(input: &str) -> &'static str {
+    match input.trim().to_ascii_uppercase().as_str() {
+        "STRICT" => "STRICT",
+        _ => "BALANCED",
+    }
+}
+
+fn normalize_power_profile(input: &str) -> &'static str {
+    match input.trim().to_ascii_uppercase().as_str() {
+        "AUDIT" => "AUDIT",
+        "PENTEST" => "PENTEST",
+        "EXTREME" => "EXTREME",
+        _ => "BASIC",
+    }
+}
+
+fn normalize_sandbox_profile(input: &str) -> &'static str {
+    match input.trim().to_ascii_lowercase().as_str() {
+        "none" => "none",
+        "isolated" => "isolated",
+        _ => "limited",
+    }
 }
 
 fn parse_mode(input: &str) -> AnalysisMode {

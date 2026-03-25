@@ -12,12 +12,18 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 mod runtime_checks;
 mod preflight;
 mod security_lab;
+mod cli;
+mod teacher_audit;
 
 #[derive(Debug, Clone)]
 struct Config {
     exe_path: PathBuf,
+    assignment_path: Option<PathBuf>,
+    audit_dir: Option<PathBuf>,
     timeout_secs: u64,
     runs: u32,
+    only_scenario: Option<String>,
+    sandbox_profile: SandboxProfile,
     out_dir: PathBuf,
     analysis_mode: AnalysisMode,
     mode: ScanMode,
@@ -55,6 +61,23 @@ impl FuzzEngine {
         match self {
             FuzzEngine::Native => "native",
             FuzzEngine::LibAfl => "libafl",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SandboxProfile {
+    None,
+    Limited,
+    Isolated,
+}
+
+impl SandboxProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            SandboxProfile::None => "none",
+            SandboxProfile::Limited => "limited",
+            SandboxProfile::Isolated => "isolated",
         }
     }
 }
@@ -216,12 +239,12 @@ struct Report {
 }
 
 fn main() {
-    match parse_args(env::args().collect()) {
+    match cli::parse_args(env::args().collect()) {
         Ok(config) => run(config),
         Err(msg) => {
             eprintln!("{}", msg);
             eprintln!(
-                "Usage: exe_tester <path_to_target> [--timeout <sec>] [--runs <count>] [--out-dir <path>] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
+                "Usage: exe_tester <path_to_target> [--assignment <path.json>] [--audit-dir <folder>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
             );
             std::process::exit(64);
         }
@@ -229,6 +252,54 @@ fn main() {
 }
 
 fn run(config: Config) {
+    let mut assignment_spec = None;
+    if let Some(path) = &config.assignment_path {
+        match teacher_audit::load_assignment(path) {
+            Ok(spec) => {
+                println!("[TEACHER/AUDIT] Assignment loaded: {}", path.display());
+                println!(
+                    "[TEACHER/AUDIT] id={} | title={} | targets={} | required_modules={}",
+                    spec.id,
+                    spec.title,
+                    spec.targets.len(),
+                    spec.policy.required_modules.len()
+                );
+                if let Err(err) = teacher_audit::validate_runtime_config(&spec, &config) {
+                    eprintln!("[TEACHER/AUDIT] Assignment policy mismatch: {err}");
+                    std::process::exit(65);
+                }
+                assignment_spec = Some(spec);
+            }
+            Err(err) => {
+                eprintln!("[TEACHER/AUDIT] Invalid assignment: {err}");
+                std::process::exit(65);
+            }
+        }
+    }
+
+    if let (Some(spec), Some(audit_dir)) = (assignment_spec.as_ref(), config.audit_dir.as_ref()) {
+        println!("[TEACHER/AUDIT] Starting batch run in {}", audit_dir.display());
+        match teacher_audit::run_batch_audit(&config, spec, audit_dir) {
+            Ok(batch) => {
+                println!("[TEACHER/AUDIT] Batch finished: total={} pass={} warn={} fail={}", batch.total, batch.pass, batch.warn, batch.fail);
+                println!("[TEACHER/AUDIT] Summary JSON: {}", batch.summary_json);
+                println!("[TEACHER/AUDIT] Summary CSV:  {}", batch.summary_csv);
+                println!("[TEACHER/AUDIT] Rerun CMD:    {}", batch.rerun_script);
+                if batch.fail > 0 {
+                    std::process::exit(2);
+                }
+                if batch.warn > 0 {
+                    std::process::exit(1);
+                }
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("[TEACHER/AUDIT] Batch failed: {err}");
+                std::process::exit(66);
+            }
+        }
+    }
+
     let target_kind = detect_target_kind(&config.exe_path);
 
     if config.list_lab_modules {
@@ -241,11 +312,12 @@ fn run(config: Config) {
     println!("Target: {}", config.exe_path.display());
     println!("TargetType: {}", target_kind.as_str());
     println!(
-        "AnalysisMode: {} | VerdictMode: {} | Timeout: {} sec | Runs: {} | OutDir: {} | FuzzEngine: {}",
+        "AnalysisMode: {} | VerdictMode: {} | Timeout: {} sec | Runs: {} | Sandbox: {} | OutDir: {} | FuzzEngine: {}",
         config.analysis_mode.as_str(),
         config.mode.as_str(),
         config.timeout_secs,
         config.runs,
+        config.sandbox_profile.as_str(),
         config.out_dir.display(),
         config.fuzz_engine.as_str()
     );
@@ -315,163 +387,6 @@ fn run(config: Config) {
     println!("[PHASE 4/4] report generation");
     let (score, final_status) = score_and_status(&config, &findings);
     emit_and_exit(&config, findings, runtime, telemetry, score, final_status);
-}
-
-fn parse_args(args: Vec<String>) -> Result<Config, String> {
-    if args.len() < 2 {
-        return Err("No target EXE path provided.".to_string());
-    }
-
-    let exe_path = PathBuf::from(&args[1]);
-    let mut timeout_secs: u64 = 4;
-    let mut runs: u32 = 6;
-    let mut out_dir = PathBuf::from("logs");
-    let mut analysis_mode = AnalysisMode::Min;
-    let mut mode = ScanMode::Balanced;
-    let mut fuzz_engine = FuzzEngine::Native;
-    let mut security_lab_enabled = true;
-    let mut lab_profile = SecurityLabProfile::Standard;
-    let mut custom_modules = Vec::new();
-    let mut confirm_extended_tests = false;
-    let mut list_lab_modules = false;
-
-    let mut i = 2;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--timeout" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --timeout".to_string());
-                }
-                timeout_secs = args[i]
-                    .parse::<u64>()
-                    .map_err(|_| "--timeout must be a positive integer".to_string())?;
-                if timeout_secs == 0 {
-                    return Err("--timeout must be >= 1".to_string());
-                }
-            }
-            "--runs" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --runs".to_string());
-                }
-                runs = args[i]
-                    .parse::<u32>()
-                    .map_err(|_| "--runs must be a positive integer".to_string())?;
-                if runs == 0 {
-                    return Err("--runs must be >= 1".to_string());
-                }
-            }
-            "--out-dir" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --out-dir".to_string());
-                }
-                out_dir = PathBuf::from(&args[i]);
-            }
-            "--strict" => {
-                mode = ScanMode::Strict;
-            }
-            "--balanced" => {
-                mode = ScanMode::Balanced;
-            }
-            "--mode-min" => {
-                analysis_mode = AnalysisMode::Min;
-                mode = ScanMode::Balanced;
-                lab_profile = SecurityLabProfile::Standard;
-            }
-            "--mode-pentest" => {
-                analysis_mode = AnalysisMode::Pentest;
-                mode = ScanMode::Strict;
-                lab_profile = SecurityLabProfile::Aggressive;
-            }
-            "--mode" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --mode".to_string());
-                }
-                match args[i].to_ascii_lowercase().as_str() {
-                    "min" => {
-                        analysis_mode = AnalysisMode::Min;
-                        mode = ScanMode::Balanced;
-                        lab_profile = SecurityLabProfile::Standard;
-                    }
-                    "pentest" => {
-                        analysis_mode = AnalysisMode::Pentest;
-                        mode = ScanMode::Strict;
-                        lab_profile = SecurityLabProfile::Aggressive;
-                    }
-                    _ => return Err("--mode must be 'min' or 'pentest'".to_string()),
-                }
-            }
-            "--fuzz-engine" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --fuzz-engine".to_string());
-                }
-                fuzz_engine = match args[i].to_ascii_lowercase().as_str() {
-                    "native" => FuzzEngine::Native,
-                    "libafl" => FuzzEngine::LibAfl,
-                    _ => return Err("--fuzz-engine must be 'native' or 'libafl'".to_string()),
-                };
-            }
-            "--lab-profile" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --lab-profile".to_string());
-                }
-                lab_profile = match args[i].to_ascii_lowercase().as_str() {
-                    "standard" => SecurityLabProfile::Standard,
-                    "aggressive" => SecurityLabProfile::Aggressive,
-                    _ => return Err("--lab-profile must be 'standard' or 'aggressive'".to_string()),
-                };
-            }
-            "--no-security-lab" => {
-                security_lab_enabled = false;
-            }
-            "--confirm-extended-tests" => {
-                confirm_extended_tests = true;
-            }
-            "--list-lab-modules" => {
-                list_lab_modules = true;
-            }
-            "--modules" => {
-                i += 1;
-                if i >= args.len() {
-                    return Err("Missing value for --modules".to_string());
-                }
-                custom_modules = args[i]
-                    .split(',')
-                    .map(|s| s.trim().to_ascii_lowercase())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-                if custom_modules.is_empty() {
-                    return Err("--modules requires at least one module id".to_string());
-                }
-            }
-            other => return Err(format!("Unknown argument: {}", other)),
-        }
-        i += 1;
-    }
-
-    if analysis_mode == AnalysisMode::Pentest && !confirm_extended_tests {
-        return Err("PENTEST mode requires explicit --confirm-extended-tests opt-in".to_string());
-    }
-
-    Ok(Config {
-        exe_path,
-        timeout_secs,
-        runs,
-        out_dir,
-        analysis_mode,
-        mode,
-        fuzz_engine,
-        security_lab_enabled,
-        lab_profile,
-        custom_modules,
-        confirm_extended_tests,
-        list_lab_modules,
-    })
 }
 
 fn finding(
@@ -725,6 +640,30 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
         ));
     }
 
+    match pe_certificate_table_size(bytes) {
+        Some(size) if size > 0 => findings.push(finding(
+            Severity::Pass,
+            "SIGNATURE_PRESENT",
+            "signature",
+            0,
+            format!("Authenticode certificate table detected ({} bytes).", size),
+        )),
+        _ => {
+            let sev = if config.mode == ScanMode::Strict {
+                Severity::Fail
+            } else {
+                Severity::Warn
+            };
+            findings.push(finding(
+                sev,
+                "SIGNATURE_UNSIGNED",
+                "signature",
+                10,
+                "Authenticode certificate table is missing; file appears unsigned.",
+            ));
+        }
+    }
+
     if let Some(last) = pe.sections.iter().max_by_key(|s| s.pointer_to_raw_data.saturating_add(s.size_of_raw_data)) {
         let end_of_sections = last.pointer_to_raw_data as usize + last.size_of_raw_data as usize;
         if bytes.len() > end_of_sections {
@@ -808,6 +747,48 @@ fn shannon_entropy(data: &[u8]) -> f64 {
         entropy -= p * p.log2();
     }
     entropy
+}
+
+fn pe_certificate_table_size(bytes: &[u8]) -> Option<u32> {
+    if bytes.len() < 0x40 {
+        return None;
+    }
+
+    let pe_offset = u32::from_le_bytes([bytes[0x3C], bytes[0x3D], bytes[0x3E], bytes[0x3F]]) as usize;
+    if pe_offset.checked_add(0x18)? >= bytes.len() {
+        return None;
+    }
+
+    let opt_offset = pe_offset + 4 + 20;
+    if opt_offset.checked_add(2)? > bytes.len() {
+        return None;
+    }
+    let magic = u16::from_le_bytes([bytes[opt_offset], bytes[opt_offset + 1]]);
+    let data_dir_base = match magic {
+        0x10B => opt_offset + 96,
+        0x20B => opt_offset + 112,
+        _ => return None,
+    };
+
+    let cert_entry = data_dir_base + (4 * 8);
+    if cert_entry.checked_add(8)? > bytes.len() {
+        return None;
+    }
+
+    let _file_offset = u32::from_le_bytes([
+        bytes[cert_entry],
+        bytes[cert_entry + 1],
+        bytes[cert_entry + 2],
+        bytes[cert_entry + 3],
+    ]);
+    let size = u32::from_le_bytes([
+        bytes[cert_entry + 4],
+        bytes[cert_entry + 5],
+        bytes[cert_entry + 6],
+        bytes[cert_entry + 7],
+    ]);
+
+    Some(size)
 }
 
 fn run_string_checks(bytes: &[u8], findings: &mut Vec<Finding>) {

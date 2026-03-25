@@ -29,9 +29,13 @@ if ($LASTEXITCODE -ne 0) { Throw "pre_release_security_check failed." }
 if (-not $SkipSetup) {
 	Write-Host "[3/4] Building setup installer (Inno Setup required)..."
 	$bs = Join-Path $RepoRoot "build_setup.cmd"
-	if (-not (Test-Path $bs)) { Write-Warning "build_setup.cmd not found; skipping setup build." } else {
-		& cmd /c `"$bs --skip-portable`"
-		if ($LASTEXITCODE -ne 0) { Write-Warning "build_setup.cmd returned non-zero (installer may be missing)." }
+	if (-not (Test-Path $bs)) {
+		Write-Warning "build_setup.cmd not found; skipping setup build."
+	} else {
+		$setupProc = Start-Process -FilePath $bs -ArgumentList "--skip-portable" -NoNewWindow -Wait -PassThru
+		if ($setupProc.ExitCode -ne 0) {
+			Write-Warning "build_setup.cmd returned non-zero (installer may be missing)."
+		}
 	}
 } else {
 	Write-Host "[3/4] Skipped setup build by request."

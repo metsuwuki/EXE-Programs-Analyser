@@ -32,6 +32,10 @@ pub struct AppSettings {
     pub accent: String,
     #[serde(default)]
     pub default_mode: AnalysisMode,
+    #[serde(default = "default_power_profile")]
+    pub power_profile: String,
+    #[serde(default = "default_sandbox_profile")]
+    pub sandbox_profile: String,
     #[serde(default)]
     pub out_dir: String,
     #[serde(default)]
@@ -49,6 +53,8 @@ impl Default for AppSettings {
             theme: default_theme_mode(),
             accent: default_accent(),
             default_mode: AnalysisMode::Min,
+            power_profile: default_power_profile(),
+            sandbox_profile: default_sandbox_profile(),
             out_dir: "logs".to_string(),
             analyzer_path: None,
             vsdbg_path: None,
@@ -63,6 +69,14 @@ fn default_theme_mode() -> String {
 
 fn default_accent() -> String {
     "AMETHYST".to_string()
+}
+
+fn default_power_profile() -> String {
+    "BASIC".to_string()
+}
+
+fn default_sandbox_profile() -> String {
+    "limited".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,6 +246,35 @@ pub fn latest_report_for_target(out_dir: &Path, target: &Path) -> Option<PathBuf
     best.map(|(_, p)| p)
 }
 
+pub fn list_logs_for_report(report_path: &Path) -> (Option<String>, Option<String>) {
+    let file_name = match report_path.file_name().and_then(|n| n.to_str()) {
+        Some(v) => v,
+        None => return (None, None),
+    };
+    if !file_name.starts_with("report_") || !file_name.ends_with(".json") {
+        return (None, None);
+    }
+
+    let suffix = &file_name["report_".len()..file_name.len() - ".json".len()];
+    let parent = report_path.parent().unwrap_or_else(|| Path::new("."));
+
+    let full = parent.join(format!("full_{}.log", suffix));
+    let issues = parent.join(format!("issues_{}.log", suffix));
+
+    let full_path = if full.exists() {
+        Some(full.display().to_string())
+    } else {
+        None
+    };
+    let issues_path = if issues.exists() {
+        Some(issues.display().to_string())
+    } else {
+        None
+    };
+
+    (full_path, issues_path)
+}
+
 pub fn open_path_in_explorer(path: &Path) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -247,5 +290,52 @@ pub fn open_path_in_explorer(path: &Path) -> Result<(), String> {
         cmd.arg(path).stdout(Stdio::null()).stderr(Stdio::null());
         cmd.spawn().map_err(|e| format!("Cannot open path: {}", e))?;
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TargetTypeInfo {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+}
+
+pub fn detect_target_type(path: &Path) -> TargetTypeInfo {
+    let ext = path
+        .extension()
+        .and_then(|x| x.to_str())
+        .map(|x| x.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    let language = match ext.as_str() {
+        "cs" => Some("csharp".to_string()),
+        "java" => Some("java".to_string()),
+        "py" => Some("python".to_string()),
+        "go" => Some("go".to_string()),
+        "js" => Some("javascript".to_string()),
+        "ts" => Some("typescript".to_string()),
+        "kt" => Some("kotlin".to_string()),
+        "swift" => Some("swift".to_string()),
+        "rb" => Some("ruby".to_string()),
+        "php" => Some("php".to_string()),
+        "lua" => Some("lua".to_string()),
+        _ => None,
+    };
+
+    if ext == "exe" {
+        TargetTypeInfo {
+            kind: "executable".to_string(),
+            language: None,
+        }
+    } else if language.is_some() {
+        TargetTypeInfo {
+            kind: "source".to_string(),
+            language,
+        }
+    } else {
+        TargetTypeInfo {
+            kind: "unknown".to_string(),
+            language: None,
+        }
     }
 }

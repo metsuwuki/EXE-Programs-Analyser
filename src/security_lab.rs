@@ -621,8 +621,12 @@ mod tests {
     fn mk_config() -> Config {
         Config {
             exe_path: PathBuf::from("dummy.exe"),
+            assignment_path: None,
+            audit_dir: None,
             timeout_secs: 3,
             runs: 3,
+            only_scenario: None,
+            sandbox_profile: SandboxProfile::Limited,
             out_dir: PathBuf::from("logs"),
             analysis_mode: AnalysisMode::Min,
             mode: ScanMode::Strict,
