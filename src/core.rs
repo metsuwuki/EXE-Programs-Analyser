@@ -6,21 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::SystemTime;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum AnalysisMode {
-    Min,
-    Pentest,
-}
-
-impl Default for AnalysisMode {
-    fn default() -> Self {
-        Self::Min
-    }
-}
-
-impl AnalysisMode {
-}
+use crate::shared::{AnalysisMode, PowerProfile, SandboxProfile, ScanMode};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -40,10 +26,6 @@ pub struct AppSettings {
     pub out_dir: String,
     #[serde(default)]
     pub analyzer_path: Option<String>,
-    #[serde(default)]
-    pub vsdbg_path: Option<String>,
-    #[serde(default)]
-    pub linter_paths: Vec<String>,
 }
 
 impl Default for AppSettings {
@@ -57,8 +39,6 @@ impl Default for AppSettings {
             sandbox_profile: default_sandbox_profile(),
             out_dir: "logs".to_string(),
             analyzer_path: None,
-            vsdbg_path: None,
-            linter_paths: Vec::new(),
         }
     }
 }
@@ -159,6 +139,19 @@ pub fn resolve_cli_path() -> Option<PathBuf> {
     }
 
     None
+}
+
+pub fn resolve_cli_path_with_override(override_path: Option<&str>) -> Option<PathBuf> {
+    if let Some(raw) = override_path {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            let candidate = PathBuf::from(trimmed);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+    resolve_cli_path()
 }
 
 pub fn list_reports(out_dir: &Path) -> Vec<ReportSummary> {
@@ -275,11 +268,32 @@ pub fn list_logs_for_report(report_path: &Path) -> (Option<String>, Option<Strin
     (full_path, issues_path)
 }
 
-pub fn open_path_in_explorer(path: &Path) -> Result<(), String> {
+fn looks_like_url(value: &str) -> bool {
+    let v = value.trim().to_ascii_lowercase();
+    v.starts_with("http://") || v.starts_with("https://")
+}
+
+pub fn open_path_in_explorer(path_or_url: &str) -> Result<(), String> {
+    let target = path_or_url.trim();
+    if target.is_empty() {
+        return Err("path is empty".to_string());
+    }
+
     #[cfg(windows)]
     {
-        let mut cmd = Command::new("explorer.exe");
-        cmd.arg(path).stdout(Stdio::null()).stderr(Stdio::null());
+        let mut cmd = if looks_like_url(target) {
+            let mut c = Command::new("cmd");
+            c.arg("/C")
+                .arg("start")
+                .arg("")
+                .arg(target);
+            c
+        } else {
+            let mut c = Command::new("explorer.exe");
+            c.arg(target);
+            c
+        };
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
         cmd.spawn().map_err(|e| format!("Cannot open path: {}", e))?;
         return Ok(());
     }
@@ -287,7 +301,7 @@ pub fn open_path_in_explorer(path: &Path) -> Result<(), String> {
     #[cfg(not(windows))]
     {
         let mut cmd = Command::new("xdg-open");
-        cmd.arg(path).stdout(Stdio::null()).stderr(Stdio::null());
+        cmd.arg(target).stdout(Stdio::null()).stderr(Stdio::null());
         cmd.spawn().map_err(|e| format!("Cannot open path: {}", e))?;
         Ok(())
     }
@@ -337,5 +351,60 @@ pub fn detect_target_type(path: &Path) -> TargetTypeInfo {
             kind: "unknown".to_string(),
             language: None,
         }
+    }
+}
+
+/// Canonical defaults that a given `PowerProfile` implies.
+#[derive(Debug, Clone, Copy)]
+pub struct PowerProfileDefaults {
+    pub analysis_mode: AnalysisMode,
+    pub mode: ScanMode,
+    pub runs: u32,
+    pub timeout_secs: u64,
+    pub sandbox_profile: SandboxProfile,
+}
+
+/// Parse a power-profile string strictly — returns an error for unknown values.
+pub fn parse_power_profile(input: &str) -> Result<PowerProfile, String> {
+    match input.trim().to_ascii_uppercase().as_str() {
+        "BASIC" => Ok(PowerProfile::Basic),
+        "AUDIT" => Ok(PowerProfile::Audit),
+        "PENTEST" => Ok(PowerProfile::Pentest),
+        "EXTREME" => Ok(PowerProfile::Extreme),
+        _ => Err("--power-profile must be 'BASIC', 'AUDIT', 'PENTEST', or 'EXTREME'".to_string()),
+    }
+}
+
+/// Return the canonical defaults implied by a `PowerProfile` value.
+pub fn power_profile_defaults(profile: PowerProfile) -> PowerProfileDefaults {
+    match profile {
+        PowerProfile::Audit => PowerProfileDefaults {
+            analysis_mode: AnalysisMode::Min,
+            mode: ScanMode::Balanced,
+            runs: 8,
+            timeout_secs: 5,
+            sandbox_profile: SandboxProfile::Limited,
+        },
+        PowerProfile::Pentest => PowerProfileDefaults {
+            analysis_mode: AnalysisMode::Pentest,
+            mode: ScanMode::Strict,
+            runs: 10,
+            timeout_secs: 6,
+            sandbox_profile: SandboxProfile::Isolated,
+        },
+        PowerProfile::Extreme => PowerProfileDefaults {
+            analysis_mode: AnalysisMode::Pentest,
+            mode: ScanMode::Strict,
+            runs: 12,
+            timeout_secs: 8,
+            sandbox_profile: SandboxProfile::Isolated,
+        },
+        PowerProfile::Basic => PowerProfileDefaults {
+            analysis_mode: AnalysisMode::Min,
+            mode: ScanMode::Balanced,
+            runs: 4,
+            timeout_secs: 4,
+            sandbox_profile: SandboxProfile::Limited,
+        },
     }
 }

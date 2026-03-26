@@ -1,5 +1,4 @@
 use goblin::pe::PE;
-use serde::Serialize;
 use anyhow::Context;
 use std::env;
 use std::fs;
@@ -15,11 +14,19 @@ mod security_lab;
 mod cli;
 mod teacher_audit;
 
+// Re-export shared types from the library crate so sub-modules can access
+// them via `use super::*;` without any #[path] hacks.
+pub use exe_tester::shared::{AnalysisMode, ScanMode, Severity,
+    Finding, Report, RunResult, RuntimeTrace, RuntimeTraceEvent,
+    SandboxProfile, PowerProfile, SecurityLabProfile};
+pub use exe_tester::core::{PowerProfileDefaults, power_profile_defaults, parse_power_profile};
+
 #[derive(Debug, Clone)]
 struct Config {
     exe_path: PathBuf,
     assignment_path: Option<PathBuf>,
     audit_dir: Option<PathBuf>,
+    power_profile: PowerProfile,
     timeout_secs: u64,
     runs: u32,
     only_scenario: Option<String>,
@@ -33,21 +40,16 @@ struct Config {
     custom_modules: Vec<String>,
     confirm_extended_tests: bool,
     list_lab_modules: bool,
+    export_md: bool,
+    export_html: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SecurityLabProfile {
-    Standard,
-    Aggressive,
-}
-
-impl SecurityLabProfile {
-    fn as_str(self) -> &'static str {
-        match self {
-            SecurityLabProfile::Standard => "standard",
-            SecurityLabProfile::Aggressive => "aggressive",
-        }
-    }
+struct ReportOutputs {
+    full_log: PathBuf,
+    issues_log: PathBuf,
+    json_log: PathBuf,
+    md_log: Option<PathBuf>,
+    html_log: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,24 +66,6 @@ impl FuzzEngine {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SandboxProfile {
-    None,
-    Limited,
-    Isolated,
-}
-
-impl SandboxProfile {
-    fn as_str(self) -> &'static str {
-        match self {
-            SandboxProfile::None => "none",
-            SandboxProfile::Limited => "limited",
-            SandboxProfile::Isolated => "isolated",
-        }
-    }
-}
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SourceLanguage {
@@ -133,118 +117,13 @@ impl TargetKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum ScanMode {
-    Strict,
-    Balanced,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum AnalysisMode {
-    Min,
-    Pentest,
-}
-
-impl AnalysisMode {
-    fn as_str(self) -> &'static str {
-        match self {
-            AnalysisMode::Min => "MIN",
-            AnalysisMode::Pentest => "PENTEST",
-        }
-    }
-}
-
-impl ScanMode {
-    fn as_str(self) -> &'static str {
-        match self {
-            ScanMode::Strict => "STRICT",
-            ScanMode::Balanced => "BALANCED",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum Severity {
-    Pass,
-    Warn,
-    Fail,
-}
-
-impl Severity {
-    fn as_str(self) -> &'static str {
-        match self {
-            Severity::Pass => "PASS",
-            Severity::Warn => "WARN",
-            Severity::Fail => "FAIL",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct Finding {
-    severity: Severity,
-    code: &'static str,
-    category: &'static str,
-    points: u32,
-    message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct RunResult {
-    scenario: String,
-    exit_code: Option<i32>,
-    timed_out: bool,
-    duration_ms: u128,
-    stdout_len: usize,
-    stderr_len: usize,
-    failure_reason: String,
-    trace: RuntimeTrace,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct RuntimeTrace {
-    scenario_kind: String,
-    sandbox_profile: String,
-    env_policy: String,
-    working_dir: String,
-    started_unix: u64,
-    finished_unix: u64,
-    events: Vec<RuntimeTraceEvent>,
-    stdout_preview: String,
-    stderr_preview: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct RuntimeTraceEvent {
-    at_ms: u128,
-    stage: String,
-    detail: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct Report {
-    schema_version: String,
-    target: String,
-    generated_unix: u64,
-    analysis_mode: AnalysisMode,
-    mode: ScanMode,
-    score: u32,
-    final_status: Severity,
-    findings: Vec<Finding>,
-    runtime: Vec<RunResult>,
-    telemetry: security_lab::SecurityLabTelemetry,
-}
-
 fn main() {
     match cli::parse_args(env::args().collect()) {
         Ok(config) => run(config),
         Err(msg) => {
             eprintln!("{}", msg);
             eprintln!(
-                "Usage: exe_tester <path_to_target> [--assignment <path.json>] [--audit-dir <folder>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
+                "Usage: exe_tester <path_to_target> [--assignment <path.json>] [--audit-dir <folder>] [--power-profile <BASIC|AUDIT|PENTEST|EXTREME>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--export-format <json|md|html|both>] [--export-md] [--export-html] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
             );
             std::process::exit(64);
         }
@@ -308,13 +187,14 @@ fn run(config: Config) {
     }
 
     let mut findings = Vec::new();
-    println!("=== EXE Analyzer v2 (Rust) ===");
+    println!("=== Metsuki Analyzer (Rust) ===");
     println!("Target: {}", config.exe_path.display());
     println!("TargetType: {}", target_kind.as_str());
     println!(
-        "AnalysisMode: {} | VerdictMode: {} | Timeout: {} sec | Runs: {} | Sandbox: {} | OutDir: {} | FuzzEngine: {}",
+        "AnalysisMode: {} | VerdictMode: {} | PowerProfile: {} | Timeout: {} sec | Runs: {} | Sandbox: {} | OutDir: {} | FuzzEngine: {}",
         config.analysis_mode.as_str(),
         config.mode.as_str(),
+        config.power_profile.as_str(),
         config.timeout_secs,
         config.runs,
         config.sandbox_profile.as_str(),
@@ -406,25 +286,26 @@ fn finding(
 }
 
 fn detect_target_kind(path: &Path) -> TargetKind {
-    let ext = path
-        .extension()
-        .and_then(|x| x.to_str())
-        .map(|x| x.to_ascii_lowercase())
-        .unwrap_or_default();
-
-    match ext.as_str() {
-        "exe" => TargetKind::Executable,
-        "cs" => TargetKind::Source(SourceLanguage::CSharp),
-        "java" => TargetKind::Source(SourceLanguage::Java),
-        "py" => TargetKind::Source(SourceLanguage::Python),
-        "go" => TargetKind::Source(SourceLanguage::Go),
-        "js" => TargetKind::Source(SourceLanguage::JavaScript),
-        "ts" => TargetKind::Source(SourceLanguage::TypeScript),
-        "kt" => TargetKind::Source(SourceLanguage::Kotlin),
-        "swift" => TargetKind::Source(SourceLanguage::Swift),
-        "rb" => TargetKind::Source(SourceLanguage::Ruby),
-        "php" => TargetKind::Source(SourceLanguage::Php),
-        "lua" => TargetKind::Source(SourceLanguage::Lua),
+    let info = exe_tester::core::detect_target_type(path);
+    match info.kind.as_str() {
+        "executable" => TargetKind::Executable,
+        "source" => {
+            let lang = match info.language.as_deref().unwrap_or("") {
+                "csharp" => SourceLanguage::CSharp,
+                "java" => SourceLanguage::Java,
+                "python" => SourceLanguage::Python,
+                "go" => SourceLanguage::Go,
+                "javascript" => SourceLanguage::JavaScript,
+                "typescript" => SourceLanguage::TypeScript,
+                "kotlin" => SourceLanguage::Kotlin,
+                "swift" => SourceLanguage::Swift,
+                "ruby" => SourceLanguage::Ruby,
+                "php" => SourceLanguage::Php,
+                "lua" => SourceLanguage::Lua,
+                _ => return TargetKind::Unknown,
+            };
+            TargetKind::Source(lang)
+        }
         _ => TargetKind::Unknown,
     }
 }
@@ -1146,11 +1027,17 @@ fn emit_and_exit(
     print_console_report(&findings, &runtime, &telemetry, score, final_status);
     let paths = write_report_files(config, &findings, &runtime, &telemetry, score, final_status);
 
-    if let Ok((full_log, issues_log, json_log)) = paths {
+    if let Ok(outputs) = paths {
         println!();
-        println!("[REPORT] Full:   {}", full_log.display());
-        println!("[REPORT] Issues: {}", issues_log.display());
-        println!("[REPORT] JSON:   {}", json_log.display());
+        println!("[REPORT] Full:   {}", outputs.full_log.display());
+        println!("[REPORT] Issues: {}", outputs.issues_log.display());
+        println!("[REPORT] JSON:   {}", outputs.json_log.display());
+        if let Some(path) = outputs.md_log {
+            println!("[REPORT] MD:     {}", path.display());
+        }
+        if let Some(path) = outputs.html_log {
+            println!("[REPORT] HTML:   {}", path.display());
+        }
     }
 
     match final_status {
@@ -1233,7 +1120,7 @@ fn write_report_files(
     telemetry: &security_lab::SecurityLabTelemetry,
     score: u32,
     final_status: Severity,
-) -> anyhow::Result<(PathBuf, PathBuf, PathBuf)> {
+) -> anyhow::Result<ReportOutputs> {
     fs::create_dir_all(&config.out_dir).with_context(|| {
         format!(
             "Failed to create output dir '{}'",
@@ -1253,11 +1140,12 @@ fn write_report_files(
     let json_log = config.out_dir.join(format!("report_{}_{}.json", base, stamp));
 
     let mut full = String::new();
-    full.push_str("=== EXE Analyzer v2 (Rust) ===\n");
+    full.push_str("=== Metsuki Analyzer (Rust) ===\n");
     full.push_str("Schema: 2.0\n");
     full.push_str(&format!("Target: {}\n", config.exe_path.display()));
     full.push_str(&format!("AnalysisMode: {}\n", config.analysis_mode.as_str()));
     full.push_str(&format!("Mode: {}\n", config.mode.as_str()));
+    full.push_str(&format!("PowerProfile: {}\n", config.power_profile.as_str()));
     full.push_str(&format!("SecurityLab profile: {}\n", telemetry.profile));
     full.push_str(&format!("Score: {}\n", score));
     full.push_str(&format!("Final: {}\n\n", final_status.as_str()));
@@ -1309,11 +1197,12 @@ fn write_report_files(
     full.push_str(&format!("next: {}\n", telemetry.recommended_next_step));
 
     let mut issues = String::new();
-    issues.push_str("=== EXE Analyzer v2 Issues ===\n");
+    issues.push_str("=== Metsuki Analyzer Issues ===\n");
     issues.push_str("Schema: 2.0\n");
     issues.push_str(&format!("Target: {}\n", config.exe_path.display()));
     issues.push_str(&format!("AnalysisMode: {}\n", config.analysis_mode.as_str()));
     issues.push_str(&format!("Mode: {}\n", config.mode.as_str()));
+    issues.push_str(&format!("PowerProfile: {}\n", config.power_profile.as_str()));
     issues.push_str(&format!("Score: {} | Final: {}\n\n", score, final_status.as_str()));
     for f in findings {
         if f.severity != Severity::Pass {
@@ -1342,14 +1231,137 @@ fn write_report_files(
         final_status,
         findings: findings.to_vec(),
         runtime: runtime.to_vec(),
-        telemetry: telemetry.clone(),
+        telemetry: serde_json::to_value(telemetry).context("Serialize telemetry failed")?,
     };
 
     let json = serde_json::to_string_pretty(&report).context("Serialize JSON report failed")?;
     fs::write(&json_log, json)
         .with_context(|| format!("Write JSON report failed: {}", json_log.display()))?;
 
-    Ok((full_log, issues_log, json_log))
+    let md_log = if config.export_md {
+        let path = config.out_dir.join(format!("report_{}_{}.md", base, stamp));
+        let body = render_report_markdown(&report);
+        fs::write(&path, body)
+            .with_context(|| format!("Write Markdown report failed: {}", path.display()))?;
+        Some(path)
+    } else {
+        None
+    };
+
+    let html_log = if config.export_html {
+        let path = config.out_dir.join(format!("report_{}_{}.html", base, stamp));
+        let body = render_report_html(&report);
+        fs::write(&path, body)
+            .with_context(|| format!("Write HTML report failed: {}", path.display()))?;
+        Some(path)
+    } else {
+        None
+    };
+
+    Ok(ReportOutputs {
+        full_log,
+        issues_log,
+        json_log,
+        md_log,
+        html_log,
+    })
+}
+
+fn render_report_markdown(report: &Report) -> String {
+    let mut out = String::new();
+    out.push_str("# Metsuki Report\n\n");
+    out.push_str(&format!("- Target: {}\n", report.target));
+    out.push_str(&format!("- Schema: {}\n", report.schema_version));
+    out.push_str(&format!("- Analysis mode: {}\n", report.analysis_mode.as_str()));
+    out.push_str(&format!("- Verdict mode: {}\n", report.mode.as_str()));
+    out.push_str(&format!("- Final status: {}\n", report.final_status.as_str()));
+    out.push_str(&format!("- Score: {}\n\n", report.score));
+
+    out.push_str("## Findings\n\n");
+    out.push_str("| Severity | Code | Category | Points | Message |\n");
+    out.push_str("|---|---|---|---:|---|\n");
+    for f in &report.findings {
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} |\n",
+            f.severity.as_str(),
+            f.code,
+            f.category,
+            f.points,
+            f.message.replace('|', "\\|")
+        ));
+    }
+
+    out.push_str("\n## Runtime\n\n");
+    out.push_str("| Scenario | Exit | Timeout | Duration ms | stdout | stderr | Reason |\n");
+    out.push_str("|---|---:|---|---:|---:|---:|---|\n");
+    for r in &report.runtime {
+        out.push_str(&format!(
+            "| {} | {:?} | {} | {} | {} | {} | {} |\n",
+            r.scenario,
+            r.exit_code,
+            r.timed_out,
+            r.duration_ms,
+            r.stdout_len,
+            r.stderr_len,
+            r.failure_reason.replace('|', "\\|")
+        ));
+    }
+
+    out
+}
+
+fn render_report_html(report: &Report) -> String {
+    fn esc(value: &str) -> String {
+        value
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+    }
+
+    let findings_rows = report
+        .findings
+        .iter()
+        .map(|f| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                esc(f.severity.as_str()),
+                esc(f.code),
+                esc(f.category),
+                f.points,
+                esc(&f.message)
+            )
+        })
+        .collect::<String>();
+
+    let runtime_rows = report
+        .runtime
+        .iter()
+        .map(|r| {
+            format!(
+                "<tr><td>{}</td><td>{:?}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                esc(&r.scenario),
+                r.exit_code,
+                r.timed_out,
+                r.duration_ms,
+                r.stdout_len,
+                r.stderr_len,
+                esc(&r.failure_reason)
+            )
+        })
+        .collect::<String>();
+
+    format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Metsuki Report</title><style>body{{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#1f2937}}table{{border-collapse:collapse;width:100%;margin:12px 0}}th,td{{border:1px solid #d1d5db;padding:8px;text-align:left}}th{{background:#f3f4f6}}h1,h2{{margin:12px 0 8px}}</style></head><body><h1>Metsuki Report</h1><p><b>Target:</b> {}<br><b>Schema:</b> {}<br><b>Analysis mode:</b> {}<br><b>Verdict mode:</b> {}<br><b>Final status:</b> {}<br><b>Score:</b> {}</p><h2>Findings</h2><table><thead><tr><th>Severity</th><th>Code</th><th>Category</th><th>Points</th><th>Message</th></tr></thead><tbody>{}</tbody></table><h2>Runtime</h2><table><thead><tr><th>Scenario</th><th>Exit</th><th>Timeout</th><th>Duration ms</th><th>stdout</th><th>stderr</th><th>Reason</th></tr></thead><tbody>{}</tbody></table></body></html>",
+        esc(&report.target),
+        esc(&report.schema_version),
+        esc(report.analysis_mode.as_str()),
+        esc(report.mode.as_str()),
+        esc(report.final_status.as_str()),
+        report.score,
+        findings_rows,
+        runtime_rows,
+    )
 }
 
 fn timestamp_string() -> String {

@@ -30,10 +30,9 @@ function bind() {
       document.getElementById("btnOpenReportsDir").addEventListener("click", () => post("open_path", { path: document.getElementById("outDirInput").value || "logs" }).catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnOpenFullLog").addEventListener("click", () => openReportLog("full").catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnOpenIssuesLog").addEventListener("click", () => openReportLog("issues").catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnExportMd").addEventListener("click", () => exportReport("md").catch(e => addLog("[error] " + e.message)));
+      document.getElementById("btnExportHtml").addEventListener("click", () => exportReport("html").catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnSaveSettings").addEventListener("click", () => saveUiSettings().catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnCheckTools").addEventListener("click", () => checkTools().catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnOpenVsdbgPath").addEventListener("click", () => post("open_path", { path: document.getElementById("vsdbgPath").value || "" }).catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnSaveToolsSettings").addEventListener("click", () => saveToolsSettings().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnCreateBundle").addEventListener("click", () => createBundle().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnRerunScenario").addEventListener("click", () => rerunScenario().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnCloseReport").addEventListener("click", clearCurrentReport);

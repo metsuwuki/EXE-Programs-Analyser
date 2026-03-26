@@ -1,5 +1,16 @@
 use super::*;
 
+#[cfg(windows)]
+use std::os::windows::io::AsRawHandle;
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+#[cfg(windows)]
+use windows_sys::Win32::System::JobObjects::{
+    AssignProcessToJobObject, CreateJobObjectA, SetInformationJobObject,
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    JOB_OBJECT_LIMIT_PROCESS_MEMORY, JobObjectExtendedLimitInformation,
+};
+
 #[derive(Debug, Clone)]
 struct RuntimeScenario {
     name: String,
@@ -10,25 +21,48 @@ struct RuntimeScenario {
 }
 
 pub(crate) fn run_runtime_checks(config: &Config, findings: &mut Vec<Finding>) -> Vec<RunResult> {
+    if config.sandbox_profile != SandboxProfile::None {
+        findings.push(finding(
+            Severity::Warn,
+            "SANDBOX_LIMITED_HARNESS",
+            "runtime",
+            2,
+            "Sandbox profile now enforces process lifetime via Windows Job Object when available, but remains a lightweight harness (not full VM/container isolation).",
+        ));
+    }
+
     if config.fuzz_engine == FuzzEngine::LibAfl && !cfg!(feature = "libafl-engine") {
         findings.push(finding(
             Severity::Warn,
             "LIBAFL_FEATURE_DISABLED",
             "runtime",
             2,
-            "--fuzz-engine libafl requested but binary was built without 'libafl-engine' feature; using fallback fuzz scenarios.",
+            "--fuzz-engine libafl requested but this binary was compiled without the 'libafl-engine' feature; using fallback fuzz scenarios. Recompile with --features libafl-engine to enable.",
         ));
     }
 
-    let scenarios = build_runtime_scenarios(config);
-    if let Some(name) = &config.only_scenario {
+    let mut scenarios = build_runtime_scenarios(config);
+    if let Some(requested) = &config.only_scenario {
+        let mut available: Vec<String> = Vec::with_capacity(scenarios.len());
+        let mut filtered: Vec<RuntimeScenario> = Vec::with_capacity(scenarios.len());
+        for scenario in scenarios.into_iter() {
+            available.push(scenario.name.clone());
+            if scenario.name.eq_ignore_ascii_case(requested) {
+                filtered.push(scenario);
+            }
+        }
+        scenarios = filtered;
         if scenarios.is_empty() {
+            let names = available.join(", ");
             findings.push(finding(
                 Severity::Warn,
                 "RUNTIME_SCENARIO_NOT_FOUND",
                 "runtime",
                 4,
-                format!("Requested scenario '{}' was not found; runtime execution skipped.", name),
+                format!(
+                    "Requested scenario '{}' not found. Available: {}.",
+                    requested, names
+                ),
             ));
         }
     }
@@ -149,10 +183,6 @@ fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
                 timeout_secs: config.timeout_secs.min(3),
             });
         }
-    }
-
-    if let Some(name) = &config.only_scenario {
-        scenarios.retain(|s| s.name.eq_ignore_ascii_case(name));
     }
 
     scenarios.truncate(config.runs as usize);
@@ -292,6 +322,20 @@ fn run_single_runtime_scenario(
         detail: format!("pid={}", child.id()),
     });
 
+    let _sandbox_handle = match apply_runtime_sandbox(config, &mut child, &mut trace_events, &start) {
+        Ok(v) => v,
+        Err(e) => {
+            findings.push(finding(
+                Severity::Warn,
+                "SANDBOX_ENFORCEMENT_FAILED",
+                "runtime",
+                8,
+                format!("Scenario '{}' sandbox enforcement failed: {}", scenario.name, e),
+            ));
+            None
+        }
+    };
+
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(scenario.stdin_payload.as_bytes());
         trace_events.push(RuntimeTraceEvent {
@@ -301,44 +345,49 @@ fn run_single_runtime_scenario(
         });
     }
 
+    let stdout_thread = child
+        .stdout
+        .take()
+        .map(|stdout| thread::spawn(move || read_output_stream(stdout)));
+    let stderr_thread = child
+        .stderr
+        .take()
+        .map(|stderr| thread::spawn(move || read_output_stream(stderr)));
+
     let timeout = Duration::from_secs(scenario.timeout_secs.max(1));
-    let timed_out = wait_with_timeout(&mut child, timeout, start, &scenario.name, findings)?;
+    let outcome = wait_with_timeout(&mut child, timeout, start, &scenario.name, findings)?;
     trace_events.push(RuntimeTraceEvent {
         at_ms: start.elapsed().as_millis(),
         stage: "wait_finished".to_string(),
-        detail: if timed_out {
+        detail: if outcome.timed_out {
             "timed_out=true".to_string()
         } else {
             "timed_out=false".to_string()
         },
     });
 
-    let output = match child.wait_with_output() {
-        Ok(o) => o,
-        Err(e) => {
-            findings.push(finding(
-                Severity::Warn,
-                "OUTPUT_CAPTURE_FAILED",
-                "runtime",
-                8,
-                format!("Scenario '{}' output capture failed: {}", scenario.name, e),
-            ));
-            return None;
-        }
+    let stdout = match stdout_thread {
+        Some(h) => h.join().unwrap_or_default(),
+        None => Vec::new(),
+    };
+    let stderr = match stderr_thread {
+        Some(h) => h.join().unwrap_or_default(),
+        None => Vec::new(),
     };
 
     trace_events.push(RuntimeTraceEvent {
         at_ms: start.elapsed().as_millis(),
         stage: "output_captured".to_string(),
-        detail: format!("stdout={}B stderr={}B", output.stdout.len(), output.stderr.len()),
+        detail: format!("stdout={}B stderr={}B", stdout.len(), stderr.len()),
     });
 
     let duration_ms = start.elapsed().as_millis();
-    let exit_code = output.status.code();
-    let stdout_len = output.stdout.len();
-    let stderr_len = output.stderr.len();
-    let stdout_text = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr_text = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+    let exit_code = outcome.exit_code;
+    let timed_out = outcome.timed_out;
+    let stdout_len = stdout.len();
+    let stderr_len = stderr.len();
+    let stdout_text = String::from_utf8_lossy(&stdout).to_string();
+    let stderr_text = String::from_utf8_lossy(&stderr).to_ascii_lowercase();
 
     let failure_reason = push_runtime_findings(
         scenario,
@@ -378,7 +427,7 @@ fn run_single_runtime_scenario(
             finished_unix,
             events: trace_events,
             stdout_preview: preview_text(&stdout_text, 320),
-            stderr_preview: preview_text(&String::from_utf8_lossy(&output.stderr), 320),
+            stderr_preview: preview_text(&String::from_utf8_lossy(&stderr), 320),
         },
     })
 }
@@ -424,22 +473,35 @@ fn prepare_runtime_working_dir(
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct WaitOutcome {
+    timed_out: bool,
+    exit_code: Option<i32>,
+}
+
 fn wait_with_timeout(
     child: &mut std::process::Child,
     timeout: Duration,
     start: Instant,
     scenario_name: &str,
     findings: &mut Vec<Finding>,
-) -> Option<bool> {
-    let mut timed_out = false;
+) -> Option<WaitOutcome> {
     loop {
         match child.try_wait() {
-            Ok(Some(_)) => break,
+            Ok(Some(status)) => {
+                return Some(WaitOutcome {
+                    timed_out: false,
+                    exit_code: status.code(),
+                });
+            }
             Ok(None) => {
                 if start.elapsed() >= timeout {
-                    timed_out = true;
-                    let _ = child.kill();
-                    break;
+                    terminate_child(child);
+                    let exit_code = child.wait().ok().and_then(|s| s.code());
+                    return Some(WaitOutcome {
+                        timed_out: true,
+                        exit_code,
+                    });
                 }
                 thread::sleep(Duration::from_millis(40));
             }
@@ -455,7 +517,112 @@ fn wait_with_timeout(
             }
         }
     }
-    Some(timed_out)
+}
+
+fn read_output_stream<R: std::io::Read>(mut reader: R) -> Vec<u8> {
+    let mut buf = Vec::new();
+    let _ = reader.read_to_end(&mut buf);
+    buf
+}
+
+fn terminate_child(child: &mut std::process::Child) {
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &child.id().to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
+    let _ = child.kill();
+}
+
+#[cfg(windows)]
+struct WindowsJobSandbox {
+    job: HANDLE,
+}
+
+#[cfg(windows)]
+impl Drop for WindowsJobSandbox {
+    fn drop(&mut self) {
+        if !self.job.is_null() {
+            unsafe {
+                CloseHandle(self.job);
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+fn apply_runtime_sandbox(
+    config: &Config,
+    child: &mut std::process::Child,
+    trace_events: &mut Vec<RuntimeTraceEvent>,
+    start: &Instant,
+) -> Result<Option<WindowsJobSandbox>, String> {
+    if config.sandbox_profile == SandboxProfile::None {
+        return Ok(None);
+    }
+
+    let job = unsafe { CreateJobObjectA(std::ptr::null(), std::ptr::null()) };
+    if job.is_null() {
+        return Err("CreateJobObjectW failed".to_string());
+    }
+
+    let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+    if config.sandbox_profile == SandboxProfile::Isolated {
+        info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_MEMORY;
+        info.ProcessMemoryLimit = 512 * 1024 * 1024;
+    }
+
+    let set_ok = unsafe {
+        SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            (&info as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        )
+    };
+
+    if set_ok == 0 {
+        unsafe {
+            CloseHandle(job);
+        }
+        return Err("SetInformationJobObject failed".to_string());
+    }
+
+    let assign_ok = unsafe { AssignProcessToJobObject(job, child.as_raw_handle() as HANDLE) };
+    if assign_ok == 0 {
+        unsafe {
+            CloseHandle(job);
+        }
+        return Err("AssignProcessToJobObject failed".to_string());
+    }
+
+    trace_events.push(RuntimeTraceEvent {
+        at_ms: start.elapsed().as_millis(),
+        stage: "sandbox_job".to_string(),
+        detail: if config.sandbox_profile == SandboxProfile::Isolated {
+            "job_object=enabled kill_on_close=true process_memory_limit=512MB".to_string()
+        } else {
+            "job_object=enabled kill_on_close=true".to_string()
+        },
+    });
+
+    Ok(Some(WindowsJobSandbox { job }))
+}
+
+#[cfg(not(windows))]
+fn apply_runtime_sandbox(
+    _config: &Config,
+    _child: &mut std::process::Child,
+    _trace_events: &mut Vec<RuntimeTraceEvent>,
+    _start: &Instant,
+) -> Result<Option<()>, String> {
+    Ok(None)
 }
 
 fn push_runtime_findings(

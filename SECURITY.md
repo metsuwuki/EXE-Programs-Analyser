@@ -21,7 +21,7 @@
 
 ## 📬 Reporting A Security Issue
 
-Report vulnerabilities privately via your repository security channel (for example, Security Advisories).
+Report vulnerabilities privately via the repository security channel (Security Advisories).
 
 Include in the report:
 
@@ -36,9 +36,10 @@ Include in the report:
 ## 🔐 Release Integrity Checklist
 
 1. Build release artifacts with `release_artifacts.cmd`.
-2. Verify generated `SHA256SUMS.txt` and `SECURITY_PRECHECK.txt`.
-3. Publish hashes together with release assets.
-4. Distribute only binaries that match published hashes.
+2. Verify the generated `SHA256SUMS.txt` at `dist/EXE_Analyzer/SHA256SUMS.txt`.
+3. Review `dist/EXE_Analyzer/SECURITY_PRECHECK.txt` for any pre-release warnings.
+4. Publish hashes together with release assets.
+5. Distribute only binaries that match the published hashes.
 
 ---
 
@@ -46,10 +47,10 @@ Include in the report:
 
 If endpoint protection flags the app:
 
-1. Validate file hash against `SHA256SUMS.txt`.
+1. Validate the file hash against `SHA256SUMS.txt`.
 2. Reproduce in a clean VM or sandbox.
 3. Allowlist by hash/path/signer in enterprise policy.
-4. Submit sample and hash to the AV vendor.
+4. Submit the sample and hash to the AV vendor.
 
 ---
 
@@ -61,5 +62,5 @@ If endpoint protection flags the app:
 - Detection: `<vendor detection name>`
 - Detection time (UTC): `<timestamp>`
 - Package source: `<release artifact source>`
-- Reproduction: launch `exe_tester_web_gui.exe` from package root
+- Reproduction: launch `exe_tester_web_gui.exe` from the package root
 - Expected behavior: local executable analysis and report generation

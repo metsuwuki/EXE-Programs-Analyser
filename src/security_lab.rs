@@ -498,11 +498,19 @@ fn evaluate_module_status(
         );
     }
 
-    if module.requires_libafl && config.fuzz_engine != FuzzEngine::LibAfl {
-        return (
-            ModuleStatus::Incompatible,
-            "requires --fuzz-engine libafl".to_string(),
-        );
+    if module.requires_libafl {
+        if !cfg!(feature = "libafl-engine") {
+            return (
+                ModuleStatus::Incompatible,
+                "binary not built with 'libafl-engine' feature (recompile with --features libafl-engine)".to_string(),
+            );
+        }
+        if config.fuzz_engine != FuzzEngine::LibAfl {
+            return (
+                ModuleStatus::Incompatible,
+                "requires --fuzz-engine libafl".to_string(),
+            );
+        }
     }
 
     if module.requires_confirmation && !config.confirm_extended_tests {
@@ -623,6 +631,7 @@ mod tests {
             exe_path: PathBuf::from("dummy.exe"),
             assignment_path: None,
             audit_dir: None,
+            power_profile: PowerProfile::Basic,
             timeout_secs: 3,
             runs: 3,
             only_scenario: None,
@@ -636,6 +645,8 @@ mod tests {
             custom_modules: Vec::new(),
             confirm_extended_tests: false,
             list_lab_modules: false,
+            export_md: false,
+            export_html: false,
         }
     }
 

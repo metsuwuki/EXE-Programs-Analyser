@@ -47,7 +47,6 @@ const state = {
         home: "viewHome",
         reports: "viewReports",
         runtime: "viewRuntime",
-        tools: "viewTools",
         settings: "viewSettings"
       };
       return map[view] || "viewHome";
@@ -157,7 +156,6 @@ const state = {
       setText("navHome", "navHome");
       setText("navReports", "navReports");
       setText("navRuntime", "navRuntime");
-      setText("navTools", "navTools");
       setText("navSettings", "navSettings");
       setText("navSupport", "navSupport");
       setText("titleMain", "topTitle");
@@ -205,6 +203,8 @@ const state = {
       setText("btnOpenReportsDir", "btnOpenReportsDir");
       setText("btnOpenFullLog", "btnOpenFullLog");
       setText("btnOpenIssuesLog", "btnOpenIssuesLog");
+      setText("btnExportMd", "btnExportMd");
+      setText("btnExportHtml", "btnExportHtml");
       setText("thReportsModified", "thReportsModified");
       setText("thReportsSize", "thReportsSize");
       setText("thReportsPath", "thReportsPath");
@@ -232,11 +232,6 @@ const state = {
       setText("thRuntimeDuration", "thRuntimeDuration");
       setText("thRuntimeStdout", "thRuntimeStdout");
       setText("thRuntimeStderr", "thRuntimeStderr");
-      setText("toolVsdbg", "toolVsdbg");
-      setText("toolLinters", "toolLinters");
-      setText("btnCheckTools", "btnCheckTools");
-      setText("btnOpenVsdbgPath", "btnOpenVsdbgPath");
-      setText("btnSaveToolsSettings", "btnSaveToolsSettings");
       setText("lblLanguage", "lblLanguage");
       setText("lblAccent", "lblAccent");
       setText("lblThemeMode", "lblThemeMode");
@@ -244,8 +239,7 @@ const state = {
       setText("lblDefaultPowerProfile", "lblDefaultPowerProfile");
       setText("lblDefaultSandboxProfile", "lblDefaultSandboxProfile");
       setText("lblReportsDir", "lblReportsDir");
-      setText("lblVsdbgPath", "lblVsdbgPath");
-      setText("lblLinterPaths", "lblLinterPaths");
+      setText("lblAnalyzerPath", "lblAnalyzerPath");
       setText("btnSaveSettings", "btnSaveSettings");
       setText("detailsTitle", "detailsTitle");
       setText("dLabelFinalStatus", "dLabelFinalStatus");
@@ -284,17 +278,22 @@ const state = {
       }
 
       const accentSelect = document.getElementById("accentSelect");
-      if (accentSelect && accentSelect.options.length >= 10) {
-        accentSelect.options[0].textContent = tr("accentCherry");
-        accentSelect.options[1].textContent = tr("accentLava");
-        accentSelect.options[2].textContent = tr("accentGold");
-        accentSelect.options[3].textContent = tr("accentEmerald");
-        accentSelect.options[4].textContent = tr("accentSea");
-        accentSelect.options[5].textContent = tr("accentSapphire");
-        accentSelect.options[6].textContent = tr("accentAmethyst");
-        accentSelect.options[7].textContent = tr("accentQuartz");
-        accentSelect.options[8].textContent = tr("accentSnow");
-        accentSelect.options[9].textContent = tr("accentAsh");
+      if (accentSelect && accentSelect.options.length >= 9) {
+        const accentKeys = {
+          CHERRY: "accentCherry",
+          LAVA: "accentLava",
+          GOLD: "accentGold",
+          EMERALD: "accentEmerald",
+          SEA: "accentSea",
+          SAPPHIRE: "accentSapphire",
+          AMETHYST: "accentAmethyst",
+          QUARTZ: "accentQuartz",
+          ASH: "accentAsh"
+        };
+        Array.from(accentSelect.options).forEach((opt) => {
+          const key = accentKeys[String(opt.value || "").toUpperCase()];
+          if (key) opt.textContent = tr(key);
+        });
       }
 
       const themeModeSelect = document.getElementById("themeModeSelect");
@@ -1135,20 +1134,17 @@ const state = {
       document.getElementById("defaultSandboxProfileSelect").value = normalizeSandboxProfile(s.sandbox_profile || "limited");
       document.getElementById("settingsOutDir").value = s.out_dir || "logs";
       document.getElementById("outDirInput").value = s.out_dir || "logs";
+        document.getElementById("analyzerPathInput").value = s.analyzer_path || "";
       document.getElementById("modeSelect").value = s.default_mode || "MIN";
       document.getElementById("powerProfileSelect").value = normalizePowerProfile(s.power_profile || "BASIC");
       document.getElementById("sandboxProfileSelect").value = normalizeSandboxProfile(s.sandbox_profile || "limited");
       document.getElementById("verdictModeSelect").value = normalizeVerdictMode(s.default_mode === "PENTEST" ? "STRICT" : "BALANCED");
-      document.getElementById("vsdbgPath").value = s.vsdbg_path || "";
-      document.getElementById("linterPaths").value = (s.linter_paths || []).join(",");
 
       applyAccent(accent);
       applyThemeMode(themeMode);
       document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + (s.default_mode || "MIN");
       document.getElementById("stMode").textContent = "mode=" + (s.default_mode || "MIN");
       document.getElementById("stSandbox").textContent = "sandbox=" + normalizeSandboxProfile(s.sandbox_profile || "limited");
-      document.getElementById("vsdbgStatus").textContent = s.vsdbg_path ? tr("configured") : tr("notConfigured");
-      document.getElementById("lintersStatus").textContent = (s.linter_paths || []).length ? tr("configured") : tr("notConfigured");
       refreshTargetType(document.getElementById("targetPath").value).catch(() => {});
 
       const selected = (s.language || "auto").toLowerCase();
@@ -1173,35 +1169,12 @@ const state = {
         power_profile: normalizePowerProfile(document.getElementById("defaultPowerProfileSelect").value),
         sandbox_profile: normalizeSandboxProfile(document.getElementById("defaultSandboxProfileSelect").value),
         out_dir: document.getElementById("settingsOutDir").value || "logs",
-        analyzer_path: null,
-        vsdbg_path: (state.settings && state.settings.vsdbg_path) || null,
-        linter_paths: (state.settings && state.settings.linter_paths) || []
+        analyzer_path: document.getElementById("analyzerPathInput").value.trim() || null
       };
       await post("save_settings", settings);
       state.settings = settings;
       applySettingsToUi(settings);
       addLog("[ui] interface settings saved");
-      flashNote(tr("settingsSaved"));
-    }
-
-    async function saveToolsSettings() {
-      const current = state.settings || {};
-      const settings = {
-        language: current.language || document.getElementById("langSelect").value,
-        theme: normalizeThemeMode(current.theme || document.getElementById("themeModeSelect").value),
-        accent: normalizeAccent(current.accent || document.getElementById("accentSelect").value),
-        default_mode: current.default_mode || document.getElementById("defaultModeSelect").value,
-        power_profile: normalizePowerProfile(current.power_profile || document.getElementById("defaultPowerProfileSelect").value),
-        sandbox_profile: normalizeSandboxProfile(current.sandbox_profile || document.getElementById("defaultSandboxProfileSelect").value),
-        out_dir: current.out_dir || document.getElementById("settingsOutDir").value || "logs",
-        analyzer_path: null,
-        vsdbg_path: document.getElementById("vsdbgPath").value || null,
-        linter_paths: (document.getElementById("linterPaths").value || "").split(",").map(v => v.trim()).filter(Boolean)
-      };
-      await post("save_settings", settings);
-      state.settings = settings;
-      applySettingsToUi(settings);
-      addLog("[ui] tools settings saved");
       flashNote(tr("settingsSaved"));
     }
 
@@ -1411,10 +1384,19 @@ const state = {
       flashNote(tr("stopRequested"));
     }
 
-    async function checkTools() {
-      const payload = await post("tools_status", {});
-      document.getElementById("vsdbgStatus").textContent = localizeToolStatus(payload.vsdbg || "unknown");
-      document.getElementById("lintersStatus").textContent = localizeToolStatus(payload.linters || "unknown");
+    async function exportReport(format) {
+      const reportPath = document.getElementById("reportHint").textContent;
+      if (!reportPath || reportPath === tr("noReport")) {
+        addLog("[ui] " + tr("noReport"));
+        return;
+      }
+      const payload = await post("export_report", {
+        report_path: reportPath,
+        format: String(format || "").toLowerCase() === "html" ? "html" : "md"
+      });
+      if (payload && payload.path) {
+        addLog("[export] " + payload.path);
+      }
     }
 
     async function createBundle() {

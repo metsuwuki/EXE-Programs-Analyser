@@ -33,16 +33,23 @@
     }
 
     html[data-theme="LIGHT"] {
-      --bg: #f4f6fb;
-      --bg-elev: #edf0f7;
-      --bg-elev-2: #e4e9f3;
-      --bg-ink: #dce2ef;
-      --line: #b3c0d6;
-      --line-soft: #c8d1e1;
-      --text: #1b2638;
-      --muted: #4d607b;
+      --bg: #e8edf6;
+      --bg-elev: #dde5f1;
+      --bg-elev-2: #d2dcea;
+      --bg-ink: #c5d2e5;
+      --line: #8ea1be;
+      --line-soft: #a7b6cc;
+      --text: #132238;
+      --muted: #354d6d;
       --shadow: 0 16px 34px rgba(36, 59, 95, 0.17);
       --glow: 0 0 0 1px rgba(54, 77, 112, 0.08), 0 12px 28px rgba(42, 64, 98, 0.18);
+    }
+
+    html[data-theme="LIGHT"][data-accent="ASH"] {
+      --accent: #5f7694;
+      --accent-2: #7f97b4;
+      --accent-soft: #9fb4cd;
+      --accent-glow: rgba(95, 118, 148, 0.32);
     }
 
     html[data-accent="CHERRY"] {
@@ -332,27 +339,27 @@
 
     html[data-theme="LIGHT"] .sidebar {
       background:
-        linear-gradient(180deg, #f1f4fb 0%, #e8edf8 100%),
+        linear-gradient(180deg, #e3eaf5 0%, #d8e2f0 100%),
         radial-gradient(130% 90% at -20% 0%, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%);
     }
 
     html[data-theme="LIGHT"] .topbar {
       background:
-        linear-gradient(180deg, rgba(246, 249, 254, 0.95) 0%, rgba(238, 244, 252, 0.95) 100%),
+        linear-gradient(180deg, rgba(233, 240, 250, 0.95) 0%, rgba(223, 233, 246, 0.95) 100%),
         radial-gradient(120% 100% at 10% -40%, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 72%);
     }
 
     html[data-theme="LIGHT"] .panel {
       background:
-        linear-gradient(180deg, #f6f9ff 0%, #edf2fb 100%),
+        linear-gradient(180deg, #ebf1fb 0%, #dee8f6 100%),
         radial-gradient(120% 100% at 0% -30%, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 72%);
     }
 
     html[data-theme="LIGHT"] .panel-head {
       background:
-        linear-gradient(180deg, #eff4fb 0%, #e8eef8 100%),
+        linear-gradient(180deg, #e1eaf7 0%, #d7e2f2 100%),
         radial-gradient(140% 90% at -10% -80%, color-mix(in oklab, var(--accent-2) 10%, transparent) 0%, transparent 74%);
-      color: #4f6381;
+      color: #35506f;
     }
 
     html[data-theme="LIGHT"] .nav-btn,
@@ -416,7 +423,7 @@
     html[data-theme="LIGHT"] .muted,
     html[data-theme="LIGHT"] .field label,
     html[data-theme="LIGHT"] .confirm-check-text {
-      color: #48607f;
+      color: #2d4766;
     }
 
     html[data-theme="LIGHT"] .picker-item {
