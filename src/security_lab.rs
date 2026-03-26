@@ -645,6 +645,7 @@ mod tests {
             custom_modules: Vec::new(),
             confirm_extended_tests: false,
             list_lab_modules: false,
+            list_scenarios: false,
             export_md: false,
             export_html: false,
         }

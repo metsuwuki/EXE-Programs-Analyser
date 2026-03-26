@@ -179,7 +179,111 @@ pub struct Report {
     pub mode: ScanMode,
     pub score: u32,
     pub final_status: Severity,
+    pub summary: ReportSummaryBlock,
+    pub artifacts: ReportArtifacts,
     pub findings: Vec<Finding>,
     pub runtime: Vec<RunResult>,
     pub telemetry: Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportSummaryBlock {
+    pub severity: SeveritySummary,
+    pub runtime: RuntimeSummary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SeveritySummary {
+    pub pass: usize,
+    pub warn: usize,
+    pub fail: usize,
+    pub total: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RuntimeSummary {
+    pub runs: usize,
+    pub timeout_count: usize,
+    pub non_zero_exit_count: usize,
+    pub unique_exit_codes: Vec<i32>,
+    pub total_duration_ms: u128,
+    pub min_duration_ms: u128,
+    pub max_duration_ms: u128,
+    pub p50_duration_ms: u128,
+    pub p95_duration_ms: u128,
+    pub flaky: bool,
+    pub flakiness_percent: u32,
+    pub stability_percent: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct ReportArtifacts {
+    pub target_kind: String,
+    pub file_size_bytes: usize,
+    pub static_analysis: StaticAnalysisArtifacts,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct StaticAnalysisArtifacts {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pe: Option<PeArtifacts>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<SourceArtifacts>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strings: Option<StringsArtifacts>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PeArtifacts {
+    pub arch: String,
+    pub is_dll: bool,
+    pub section_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry_point_rva: Option<u64>,
+    pub sections: Vec<PeSectionArtifact>,
+    pub imports: ImportArtifacts,
+    pub mitigations: MitigationArtifacts,
+    pub overlay_bytes: u64,
+    pub certificate_table_bytes: u32,
+    pub coff_timestamp: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PeSectionArtifact {
+    pub name: String,
+    pub virtual_size: u32,
+    pub raw_size: u32,
+    pub entropy: f64,
+    pub readable: bool,
+    pub writable: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportArtifacts {
+    pub total: usize,
+    pub suspicious: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MitigationArtifacts {
+    pub dep: bool,
+    pub aslr: bool,
+    pub cfg: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StringsArtifacts {
+    pub total_strings_scanned: usize,
+    pub suspicious_hits: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SourceArtifacts {
+    pub language: String,
+    pub line_count: usize,
+    pub mostly_text: bool,
+    pub long_lines: usize,
+    pub unbalanced_delimiters: bool,
+    pub suspicious_hits: Vec<String>,
 }

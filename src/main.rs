@@ -18,7 +18,10 @@ mod teacher_audit;
 // them via `use super::*;` without any #[path] hacks.
 pub use exe_tester::shared::{AnalysisMode, ScanMode, Severity,
     Finding, Report, RunResult, RuntimeTrace, RuntimeTraceEvent,
-    SandboxProfile, PowerProfile, SecurityLabProfile};
+    SandboxProfile, PowerProfile, SecurityLabProfile, ReportSummaryBlock,
+    RuntimeSummary, SeveritySummary, ReportArtifacts, StaticAnalysisArtifacts,
+    PeArtifacts, PeSectionArtifact, ImportArtifacts, MitigationArtifacts,
+    StringsArtifacts, SourceArtifacts};
 pub use exe_tester::core::{PowerProfileDefaults, power_profile_defaults, parse_power_profile};
 
 #[derive(Debug, Clone)]
@@ -40,6 +43,7 @@ struct Config {
     custom_modules: Vec<String>,
     confirm_extended_tests: bool,
     list_lab_modules: bool,
+    list_scenarios: bool,
     export_md: bool,
     export_html: bool,
 }
@@ -123,7 +127,7 @@ fn main() {
         Err(msg) => {
             eprintln!("{}", msg);
             eprintln!(
-                "Usage: exe_tester <path_to_target> [--assignment <path.json>] [--audit-dir <folder>] [--power-profile <BASIC|AUDIT|PENTEST|EXTREME>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--export-format <json|md|html|both>] [--export-md] [--export-html] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--no-security-lab]"
+                "Usage: exe_tester <path_to_target> [--assignment <path.json>] [--audit-dir <folder>] [--power-profile <BASIC|AUDIT|PENTEST|EXTREME>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--export-format <json|md|html|both>] [--export-md] [--export-html] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--list-scenarios] [--no-security-lab]"
             );
             std::process::exit(64);
         }
@@ -185,8 +189,17 @@ fn run(config: Config) {
         security_lab::print_module_catalog();
         return;
     }
+    if config.list_scenarios {
+        runtime_checks::print_scenario_catalog(&config);
+        return;
+    }
 
     let mut findings = Vec::new();
+    let mut artifacts = ReportArtifacts {
+        target_kind: target_kind.as_str().to_string(),
+        file_size_bytes: 0,
+        static_analysis: StaticAnalysisArtifacts::default(),
+    };
     println!("=== Metsuki Analyzer (Rust) ===");
     println!("Target: {}", config.exe_path.display());
     println!("TargetType: {}", target_kind.as_str());
@@ -227,21 +240,32 @@ fn run(config: Config) {
                 security_lab::build_telemetry(&config, target_kind, &[], &runtime, &mut findings);
             security_lab::print_module_info(&telemetry);
             let (score, final_status) = score_and_status(&config, &findings);
-            emit_and_exit(&config, findings, runtime, telemetry, score, final_status);
+            emit_and_exit(&config, findings, runtime, telemetry, artifacts, score, final_status);
             return;
         }
     };
+    artifacts.file_size_bytes = bytes.len();
 
     match target_kind {
         TargetKind::Executable => {
-            run_pe_static_checks(&bytes, &config, &mut findings);
-            run_string_checks(&bytes, &mut findings);
+            artifacts.static_analysis.pe = run_pe_static_checks(&bytes, &config, &mut findings);
+            artifacts.static_analysis.strings = Some(run_string_checks(&bytes, &mut findings));
         }
         TargetKind::Source(lang) => {
-            run_source_static_checks(&config.exe_path, &bytes, Some(lang), &mut findings);
+            artifacts.static_analysis.source = Some(run_source_static_checks(
+                &config.exe_path,
+                &bytes,
+                Some(lang),
+                &mut findings,
+            ));
         }
         TargetKind::Unknown => {
-            run_source_static_checks(&config.exe_path, &bytes, None, &mut findings);
+            artifacts.static_analysis.source = Some(run_source_static_checks(
+                &config.exe_path,
+                &bytes,
+                None,
+                &mut findings,
+            ));
         }
     }
 
@@ -266,7 +290,7 @@ fn run(config: Config) {
 
     println!("[PHASE 4/4] report generation");
     let (score, final_status) = score_and_status(&config, &findings);
-    emit_and_exit(&config, findings, runtime, telemetry, score, final_status);
+    emit_and_exit(&config, findings, runtime, telemetry, artifacts, score, final_status);
 }
 
 fn finding(
@@ -310,7 +334,11 @@ fn detect_target_kind(path: &Path) -> TargetKind {
     }
 }
 
-fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Finding>) {
+fn run_pe_static_checks(
+    bytes: &[u8],
+    config: &Config,
+    findings: &mut Vec<Finding>,
+) -> Option<PeArtifacts> {
     if bytes.len() < 2 || &bytes[0..2] != b"MZ" {
         findings.push(finding(
             Severity::Fail,
@@ -319,7 +347,7 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
             35,
             "DOS MZ signature missing.",
         ));
-        return;
+        return None;
     }
 
     let pe = match PE::parse(bytes) {
@@ -332,7 +360,7 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
                 45,
                 format!("PE parse failed: {}", e),
             ));
-            return;
+            return None;
         }
     };
 
@@ -378,13 +406,41 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
     }
 
     let mut rwx_sections = Vec::new();
+    let mut section_artifacts = Vec::with_capacity(pe.sections.len());
+    let mut high_entropy_sections = Vec::new();
     for sec in &pe.sections {
         let chars = sec.characteristics;
+        let is_read = (chars & 0x4000_0000) != 0;
         let is_exec = (chars & 0x2000_0000) != 0;
         let is_write = (chars & 0x8000_0000) != 0;
+        let start = sec.pointer_to_raw_data as usize;
+        let size = sec.size_of_raw_data as usize;
+        let entropy = if size > 0 {
+            start
+                .checked_add(size)
+                .filter(|end| *end <= bytes.len())
+                .map(|end| shannon_entropy(&bytes[start..end]))
+                .unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
         if is_exec && is_write {
             rwx_sections.push(section_name(sec.name()));
         }
+        let name = section_name(sec.name());
+        if entropy >= 7.2 {
+            high_entropy_sections.push((name.clone(), entropy));
+        }
+        section_artifacts.push(PeSectionArtifact {
+            name,
+            virtual_size: sec.virtual_size,
+            raw_size: sec.size_of_raw_data,
+            entropy,
+            readable: is_read,
+            writable: is_write,
+            executable: is_exec,
+        });
     }
     if !rwx_sections.is_empty() {
         findings.push(finding(
@@ -394,25 +450,6 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
             30,
             format!("Executable+Writable sections found: {}", rwx_sections.join(", ")),
         ));
-    }
-
-    let mut high_entropy_sections = Vec::new();
-    for sec in &pe.sections {
-        let start = sec.pointer_to_raw_data as usize;
-        let size = sec.size_of_raw_data as usize;
-        if size == 0 {
-            continue;
-        }
-
-        if let Some(end) = start.checked_add(size) {
-            if end <= bytes.len() {
-                let ent = shannon_entropy(&bytes[start..end]);
-                if ent >= 7.2 {
-                    let name = section_name(sec.name());
-                    high_entropy_sections.push((name, ent));
-                }
-            }
-        }
     }
 
     if !high_entropy_sections.is_empty() {
@@ -430,8 +467,10 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
         ));
     }
 
+    let mut entry_point_rva = None;
     if let Some(optional) = pe.header.optional_header {
         let entry_rva = optional.standard_fields.address_of_entry_point;
+        entry_point_rva = Some(entry_rva);
         let mut entry_in_exec_section = false;
         for sec in &pe.sections {
             let start = sec.virtual_address as u64;
@@ -545,10 +584,12 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
         }
     }
 
+    let mut overlay_bytes = 0_u64;
     if let Some(last) = pe.sections.iter().max_by_key(|s| s.pointer_to_raw_data.saturating_add(s.size_of_raw_data)) {
         let end_of_sections = last.pointer_to_raw_data as usize + last.size_of_raw_data as usize;
         if bytes.len() > end_of_sections {
             let overlay = bytes.len() - end_of_sections;
+            overlay_bytes = overlay as u64;
             if overlay > 4096 {
                 let sev = if config.mode == ScanMode::Strict {
                     Severity::Fail
@@ -599,6 +640,30 @@ fn run_pe_static_checks(bytes: &[u8], config: &Config, findings: &mut Vec<Findin
     } else {
         findings.push(finding(Severity::Warn, "CFG_MISSING", "mitigations", 7, "Control Flow Guard is not enabled."));
     }
+
+    Some(PeArtifacts {
+        arch: if pe.is_64 {
+            "x64".to_string()
+        } else {
+            "x86".to_string()
+        },
+        is_dll: pe.is_lib,
+        section_count,
+        entry_point_rva,
+        sections: section_artifacts,
+        imports: ImportArtifacts {
+            total: pe.imports.len(),
+            suspicious: matched,
+        },
+        mitigations: MitigationArtifacts {
+            dep: nx_compat,
+            aslr,
+            cfg,
+        },
+        overlay_bytes,
+        certificate_table_bytes: pe_certificate_table_size(bytes).unwrap_or(0),
+        coff_timestamp: timestamp,
+    })
 }
 
 fn section_name(raw: Result<&str, goblin::error::Error>) -> String {
@@ -672,7 +737,7 @@ fn pe_certificate_table_size(bytes: &[u8]) -> Option<u32> {
     Some(size)
 }
 
-fn run_string_checks(bytes: &[u8], findings: &mut Vec<Finding>) {
+fn run_string_checks(bytes: &[u8], findings: &mut Vec<Finding>) -> StringsArtifacts {
     let strings = extract_ascii_strings(bytes, 6);
 
     let suspicious_tokens = [
@@ -727,6 +792,11 @@ fn run_string_checks(bytes: &[u8], findings: &mut Vec<Finding>) {
             format!("Potentially dangerous strings: {}", hits.join(" | ")),
         ));
     }
+
+    StringsArtifacts {
+        total_strings_scanned: strings.len(),
+        suspicious_hits: hits,
+    }
 }
 
 fn run_source_static_checks(
@@ -734,8 +804,9 @@ fn run_source_static_checks(
     bytes: &[u8],
     language: Option<SourceLanguage>,
     findings: &mut Vec<Finding>,
-) {
+) -> SourceArtifacts {
     let lang_name = language.map(|l| l.as_str()).unwrap_or("Generic source");
+    let mostly_text = looks_mostly_text(bytes);
 
     findings.push(finding(
         Severity::Pass,
@@ -745,7 +816,7 @@ fn run_source_static_checks(
         format!("Running source analysis mode for {}", lang_name),
     ));
 
-    if !looks_mostly_text(bytes) {
+    if !mostly_text {
         findings.push(finding(
             Severity::Warn,
             "SOURCE_NOT_TEXT_LIKE",
@@ -830,7 +901,8 @@ fn run_source_static_checks(
         ));
     }
 
-    if has_unbalanced_delimiters(&text) {
+    let unbalanced_delimiters = has_unbalanced_delimiters(&text);
+    if unbalanced_delimiters {
         findings.push(finding(
             Severity::Warn,
             "SOURCE_UNBALANCED_DELIMITERS",
@@ -857,6 +929,15 @@ fn run_source_static_checks(
             2,
             "Source contains TODO/FIXME markers.",
         ));
+    }
+
+    SourceArtifacts {
+        language: lang_name.to_string(),
+        line_count,
+        mostly_text,
+        long_lines,
+        unbalanced_delimiters,
+        suspicious_hits,
     }
 }
 
@@ -1016,16 +1097,108 @@ fn score_and_status(config: &Config, findings: &[Finding]) -> (u32, Severity) {
     (score, final_status)
 }
 
+fn summarize_findings(findings: &[Finding]) -> SeveritySummary {
+    let pass = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Pass)
+        .count();
+    let warn = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Warn)
+        .count();
+    let fail = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Fail)
+        .count();
+
+    SeveritySummary {
+        pass,
+        warn,
+        fail,
+        total: findings.len(),
+    }
+}
+
+fn percentile_duration_ms(sorted_values: &[u128], percentile: usize) -> u128 {
+    if sorted_values.is_empty() {
+        return 0;
+    }
+
+    let idx = (((percentile as f64 / 100.0) * sorted_values.len() as f64).ceil() as usize)
+        .saturating_sub(1)
+        .min(sorted_values.len() - 1);
+    sorted_values[idx]
+}
+
+fn summarize_runtime(runtime: &[RunResult]) -> RuntimeSummary {
+    let mut durations = runtime.iter().map(|r| r.duration_ms).collect::<Vec<_>>();
+    durations.sort_unstable();
+
+    let timeout_count = runtime.iter().filter(|r| r.timed_out).count();
+    let non_zero_exit_count = runtime
+        .iter()
+        .filter(|r| r.exit_code.unwrap_or(-1) != 0)
+        .count();
+
+    let mut unique_exit_codes = runtime
+        .iter()
+        .filter_map(|r| r.exit_code)
+        .collect::<Vec<_>>();
+    unique_exit_codes.sort_unstable();
+    unique_exit_codes.dedup();
+
+    let total_duration_ms = durations.iter().copied().sum();
+    let flaky = timeout_count > 0
+        || unique_exit_codes.len() > 1
+        || (unique_exit_codes.first().copied().unwrap_or(0) != 0 && !runtime.is_empty());
+    let flakiness_percent = if runtime.is_empty() {
+        0
+    } else {
+        ((timeout_count + non_zero_exit_count) as u32 * 100 / runtime.len() as u32).min(100)
+    };
+
+    RuntimeSummary {
+        runs: runtime.len(),
+        timeout_count,
+        non_zero_exit_count,
+        unique_exit_codes,
+        total_duration_ms,
+        min_duration_ms: durations.first().copied().unwrap_or(0),
+        max_duration_ms: durations.last().copied().unwrap_or(0),
+        p50_duration_ms: percentile_duration_ms(&durations, 50),
+        p95_duration_ms: percentile_duration_ms(&durations, 95),
+        flaky,
+        flakiness_percent,
+        stability_percent: 100_u32.saturating_sub(flakiness_percent),
+    }
+}
+
+fn build_report_summary(findings: &[Finding], runtime: &[RunResult]) -> ReportSummaryBlock {
+    ReportSummaryBlock {
+        severity: summarize_findings(findings),
+        runtime: summarize_runtime(runtime),
+    }
+}
+
 fn emit_and_exit(
     config: &Config,
     findings: Vec<Finding>,
     runtime: Vec<RunResult>,
     telemetry: security_lab::SecurityLabTelemetry,
+    artifacts: ReportArtifacts,
     score: u32,
     final_status: Severity,
 ) {
     print_console_report(&findings, &runtime, &telemetry, score, final_status);
-    let paths = write_report_files(config, &findings, &runtime, &telemetry, score, final_status);
+    let paths = write_report_files(
+        config,
+        &findings,
+        &runtime,
+        &telemetry,
+        &artifacts,
+        score,
+        final_status,
+    );
 
     if let Ok(outputs) = paths {
         println!();
@@ -1054,9 +1227,8 @@ fn print_console_report(
     score: u32,
     final_status: Severity,
 ) {
-    let pass = findings.iter().filter(|f| f.severity == Severity::Pass).count();
-    let warn = findings.iter().filter(|f| f.severity == Severity::Warn).count();
-    let fail = findings.iter().filter(|f| f.severity == Severity::Fail).count();
+    let severity = summarize_findings(findings);
+    let runtime_summary = summarize_runtime(runtime);
 
     println!("=== Findings ===");
     for f in findings {
@@ -1108,9 +1280,22 @@ fn print_console_report(
 
     println!();
     println!("=== Totals ===");
-    println!("PASS: {}  WARN: {}  FAIL: {}", pass, warn, fail);
+    println!(
+        "PASS: {}  WARN: {}  FAIL: {}",
+        severity.pass, severity.warn, severity.fail
+    );
     println!("RISK SCORE: {}", score);
     println!("FINAL: {}", final_status.as_str());
+    if runtime_summary.runs > 0 {
+        println!(
+            "RUNTIME: runs={} p50={}ms p95={}ms flaky={} flakiness={}%",
+            runtime_summary.runs,
+            runtime_summary.p50_duration_ms,
+            runtime_summary.p95_duration_ms,
+            runtime_summary.flaky,
+            runtime_summary.flakiness_percent
+        );
+    }
 }
 
 fn write_report_files(
@@ -1118,6 +1303,7 @@ fn write_report_files(
     findings: &[Finding],
     runtime: &[RunResult],
     telemetry: &security_lab::SecurityLabTelemetry,
+    artifacts: &ReportArtifacts,
     score: u32,
     final_status: Severity,
 ) -> anyhow::Result<ReportOutputs> {
@@ -1138,6 +1324,7 @@ fn write_report_files(
     let full_log = config.out_dir.join(format!("full_{}_{}.log", base, stamp));
     let issues_log = config.out_dir.join(format!("issues_{}_{}.log", base, stamp));
     let json_log = config.out_dir.join(format!("report_{}_{}.json", base, stamp));
+    let summary = build_report_summary(findings, runtime);
 
     let mut full = String::new();
     full.push_str("=== Metsuki Analyzer (Rust) ===\n");
@@ -1149,6 +1336,27 @@ fn write_report_files(
     full.push_str(&format!("SecurityLab profile: {}\n", telemetry.profile));
     full.push_str(&format!("Score: {}\n", score));
     full.push_str(&format!("Final: {}\n\n", final_status.as_str()));
+    full.push_str(&format!(
+        "Severity totals: pass={} warn={} fail={} total={}\n",
+        summary.severity.pass,
+        summary.severity.warn,
+        summary.severity.fail,
+        summary.severity.total
+    ));
+    if summary.runtime.runs > 0 {
+        full.push_str(&format!(
+            "Runtime summary: runs={} timeouts={} non_zero={} p50={}ms p95={}ms flaky={} flakiness={}% stability={}%\n\n",
+            summary.runtime.runs,
+            summary.runtime.timeout_count,
+            summary.runtime.non_zero_exit_count,
+            summary.runtime.p50_duration_ms,
+            summary.runtime.p95_duration_ms,
+            summary.runtime.flaky,
+            summary.runtime.flakiness_percent,
+            summary.runtime.stability_percent
+        ));
+    }
+    full.push_str(&render_static_summary_text(artifacts));
     full.push_str("=== Findings ===\n");
     for f in findings {
         full.push_str(&format!(
@@ -1204,6 +1412,27 @@ fn write_report_files(
     issues.push_str(&format!("Mode: {}\n", config.mode.as_str()));
     issues.push_str(&format!("PowerProfile: {}\n", config.power_profile.as_str()));
     issues.push_str(&format!("Score: {} | Final: {}\n\n", score, final_status.as_str()));
+    issues.push_str(&format!(
+        "Severity totals: pass={} warn={} fail={} total={}\n",
+        summary.severity.pass,
+        summary.severity.warn,
+        summary.severity.fail,
+        summary.severity.total
+    ));
+    if summary.runtime.runs > 0 {
+        issues.push_str(&format!(
+            "Runtime summary: runs={} timeouts={} non_zero={} p50={}ms p95={}ms flaky={} flakiness={}% stability={}%\n\n",
+            summary.runtime.runs,
+            summary.runtime.timeout_count,
+            summary.runtime.non_zero_exit_count,
+            summary.runtime.p50_duration_ms,
+            summary.runtime.p95_duration_ms,
+            summary.runtime.flaky,
+            summary.runtime.flakiness_percent,
+            summary.runtime.stability_percent
+        ));
+    }
+    issues.push_str(&render_static_summary_text(artifacts));
     for f in findings {
         if f.severity != Severity::Pass {
             issues.push_str(&format!(
@@ -1222,13 +1451,15 @@ fn write_report_files(
         .with_context(|| format!("Write issues log failed: {}", issues_log.display()))?;
 
     let report = Report {
-        schema_version: "2.0".to_string(),
+        schema_version: "2.2".to_string(),
         target: config.exe_path.display().to_string(),
         generated_unix: current_unix(),
         analysis_mode: config.analysis_mode,
         mode: config.mode,
         score,
         final_status,
+        summary,
+        artifacts: artifacts.clone(),
         findings: findings.to_vec(),
         runtime: runtime.to_vec(),
         telemetry: serde_json::to_value(telemetry).context("Serialize telemetry failed")?,
@@ -1276,6 +1507,27 @@ fn render_report_markdown(report: &Report) -> String {
     out.push_str(&format!("- Verdict mode: {}\n", report.mode.as_str()));
     out.push_str(&format!("- Final status: {}\n", report.final_status.as_str()));
     out.push_str(&format!("- Score: {}\n\n", report.score));
+
+    out.push_str("## Summary\n\n");
+    out.push_str(&format!(
+        "- Severity totals: PASS={} WARN={} FAIL={} TOTAL={}\n",
+        report.summary.severity.pass,
+        report.summary.severity.warn,
+        report.summary.severity.fail,
+        report.summary.severity.total
+    ));
+    out.push_str(&format!(
+        "- Runtime: runs={} timeouts={} non-zero={} p50={}ms p95={}ms flaky={} flakiness={}% stability={}%\n\n",
+        report.summary.runtime.runs,
+        report.summary.runtime.timeout_count,
+        report.summary.runtime.non_zero_exit_count,
+        report.summary.runtime.p50_duration_ms,
+        report.summary.runtime.p95_duration_ms,
+        report.summary.runtime.flaky,
+        report.summary.runtime.flakiness_percent,
+        report.summary.runtime.stability_percent
+    ));
+    out.push_str(&render_static_summary_markdown(&report.artifacts));
 
     out.push_str("## Findings\n\n");
     out.push_str("| Severity | Code | Category | Points | Message |\n");
@@ -1352,16 +1604,194 @@ fn render_report_html(report: &Report) -> String {
         .collect::<String>();
 
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Metsuki Report</title><style>body{{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#1f2937}}table{{border-collapse:collapse;width:100%;margin:12px 0}}th,td{{border:1px solid #d1d5db;padding:8px;text-align:left}}th{{background:#f3f4f6}}h1,h2{{margin:12px 0 8px}}</style></head><body><h1>Metsuki Report</h1><p><b>Target:</b> {}<br><b>Schema:</b> {}<br><b>Analysis mode:</b> {}<br><b>Verdict mode:</b> {}<br><b>Final status:</b> {}<br><b>Score:</b> {}</p><h2>Findings</h2><table><thead><tr><th>Severity</th><th>Code</th><th>Category</th><th>Points</th><th>Message</th></tr></thead><tbody>{}</tbody></table><h2>Runtime</h2><table><thead><tr><th>Scenario</th><th>Exit</th><th>Timeout</th><th>Duration ms</th><th>stdout</th><th>stderr</th><th>Reason</th></tr></thead><tbody>{}</tbody></table></body></html>",
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Metsuki Report</title><style>body{{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#1f2937}}table{{border-collapse:collapse;width:100%;margin:12px 0}}th,td{{border:1px solid #d1d5db;padding:8px;text-align:left}}th{{background:#f3f4f6}}h1,h2{{margin:12px 0 8px}}</style></head><body><h1>Metsuki Report</h1><p><b>Target:</b> {}<br><b>Schema:</b> {}<br><b>Analysis mode:</b> {}<br><b>Verdict mode:</b> {}<br><b>Final status:</b> {}<br><b>Score:</b> {}</p><h2>Summary</h2><p><b>Severity totals:</b> PASS={} WARN={} FAIL={} TOTAL={}<br><b>Runtime:</b> runs={} timeouts={} non-zero={} p50={}ms p95={}ms flaky={} flakiness={}% stability={}%</p>{}<h2>Findings</h2><table><thead><tr><th>Severity</th><th>Code</th><th>Category</th><th>Points</th><th>Message</th></tr></thead><tbody>{}</tbody></table><h2>Runtime</h2><table><thead><tr><th>Scenario</th><th>Exit</th><th>Timeout</th><th>Duration ms</th><th>stdout</th><th>stderr</th><th>Reason</th></tr></thead><tbody>{}</tbody></table></body></html>",
         esc(&report.target),
         esc(&report.schema_version),
         esc(report.analysis_mode.as_str()),
         esc(report.mode.as_str()),
         esc(report.final_status.as_str()),
         report.score,
+        report.summary.severity.pass,
+        report.summary.severity.warn,
+        report.summary.severity.fail,
+        report.summary.severity.total,
+        report.summary.runtime.runs,
+        report.summary.runtime.timeout_count,
+        report.summary.runtime.non_zero_exit_count,
+        report.summary.runtime.p50_duration_ms,
+        report.summary.runtime.p95_duration_ms,
+        report.summary.runtime.flaky,
+        report.summary.runtime.flakiness_percent,
+        report.summary.runtime.stability_percent,
+        render_static_summary_html(&report.artifacts),
         findings_rows,
         runtime_rows,
     )
+}
+
+fn render_static_summary_text(artifacts: &ReportArtifacts) -> String {
+    let mut out = String::new();
+    out.push_str("Static artifacts:\n");
+    out.push_str(&format!(
+        "Target kind: {} | File size: {} bytes\n",
+        artifacts.target_kind, artifacts.file_size_bytes
+    ));
+
+    if let Some(pe) = &artifacts.static_analysis.pe {
+        out.push_str(&format!(
+            "PE: arch={} dll={} sections={} overlay={} cert={} imports={} suspicious_imports={} mitigations=[DEP:{} ASLR:{} CFG:{}]\n",
+            pe.arch,
+            pe.is_dll,
+            pe.section_count,
+            pe.overlay_bytes,
+            pe.certificate_table_bytes,
+            pe.imports.total,
+            pe.imports.suspicious.len(),
+            pe.mitigations.dep,
+            pe.mitigations.aslr,
+            pe.mitigations.cfg
+        ));
+    }
+
+    if let Some(source) = &artifacts.static_analysis.source {
+        out.push_str(&format!(
+            "Source: lang={} lines={} mostly_text={} long_lines={} unbalanced_delimiters={} suspicious_hits={}\n",
+            source.language,
+            source.line_count,
+            source.mostly_text,
+            source.long_lines,
+            source.unbalanced_delimiters,
+            source.suspicious_hits.len()
+        ));
+    }
+
+    if let Some(strings) = &artifacts.static_analysis.strings {
+        out.push_str(&format!(
+            "Strings: scanned={} suspicious_hits={}\n",
+            strings.total_strings_scanned,
+            strings.suspicious_hits.len()
+        ));
+    }
+
+    out.push('\n');
+    out
+}
+
+fn render_static_summary_markdown(artifacts: &ReportArtifacts) -> String {
+    let mut out = String::new();
+    out.push_str("## Static Artifacts\n\n");
+    out.push_str(&format!("- Target kind: {}\n", artifacts.target_kind));
+    out.push_str(&format!("- File size: {} bytes\n", artifacts.file_size_bytes));
+
+    if let Some(pe) = &artifacts.static_analysis.pe {
+        out.push_str(&format!(
+            "- PE: arch={} dll={} sections={} overlay={} cert_table={} imports={} suspicious_imports={}\n",
+            pe.arch,
+            pe.is_dll,
+            pe.section_count,
+            pe.overlay_bytes,
+            pe.certificate_table_bytes,
+            pe.imports.total,
+            pe.imports.suspicious.len()
+        ));
+        out.push_str(&format!(
+            "- Mitigations: DEP={} ASLR={} CFG={}\n",
+            pe.mitigations.dep, pe.mitigations.aslr, pe.mitigations.cfg
+        ));
+        if !pe.imports.suspicious.is_empty() {
+            out.push_str(&format!(
+                "- Suspicious imports: {}\n",
+                pe.imports.suspicious.join(", ")
+            ));
+        }
+    }
+
+    if let Some(source) = &artifacts.static_analysis.source {
+        out.push_str(&format!(
+            "- Source: lang={} lines={} mostly_text={} long_lines={} unbalanced_delimiters={}\n",
+            source.language,
+            source.line_count,
+            source.mostly_text,
+            source.long_lines,
+            source.unbalanced_delimiters
+        ));
+        if !source.suspicious_hits.is_empty() {
+            out.push_str(&format!(
+                "- Source suspicious hits: {}\n",
+                source.suspicious_hits.join(", ")
+            ));
+        }
+    }
+
+    if let Some(strings) = &artifacts.static_analysis.strings {
+        out.push_str(&format!(
+            "- Strings scanned: {} | suspicious hits: {}\n",
+            strings.total_strings_scanned,
+            strings.suspicious_hits.len()
+        ));
+    }
+
+    out.push('\n');
+    out
+}
+
+fn render_static_summary_html(artifacts: &ReportArtifacts) -> String {
+    fn esc(value: &str) -> String {
+        value
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+    }
+
+    let mut rows = vec![
+        format!("<li><b>Target kind:</b> {}</li>", esc(&artifacts.target_kind)),
+        format!("<li><b>File size:</b> {} bytes</li>", artifacts.file_size_bytes),
+    ];
+
+    if let Some(pe) = &artifacts.static_analysis.pe {
+        rows.push(format!(
+            "<li><b>PE:</b> arch={} dll={} sections={} overlay={} cert_table={} imports={} suspicious_imports={}</li>",
+            esc(&pe.arch),
+            pe.is_dll,
+            pe.section_count,
+            pe.overlay_bytes,
+            pe.certificate_table_bytes,
+            pe.imports.total,
+            pe.imports.suspicious.len()
+        ));
+        rows.push(format!(
+            "<li><b>Mitigations:</b> DEP={} ASLR={} CFG={}</li>",
+            pe.mitigations.dep, pe.mitigations.aslr, pe.mitigations.cfg
+        ));
+        if !pe.imports.suspicious.is_empty() {
+            rows.push(format!(
+                "<li><b>Suspicious imports:</b> {}</li>",
+                esc(&pe.imports.suspicious.join(", "))
+            ));
+        }
+    }
+
+    if let Some(source) = &artifacts.static_analysis.source {
+        rows.push(format!(
+            "<li><b>Source:</b> lang={} lines={} mostly_text={} long_lines={} unbalanced_delimiters={}</li>",
+            esc(&source.language),
+            source.line_count,
+            source.mostly_text,
+            source.long_lines,
+            source.unbalanced_delimiters
+        ));
+    }
+
+    if let Some(strings) = &artifacts.static_analysis.strings {
+        rows.push(format!(
+            "<li><b>Strings:</b> scanned={} suspicious_hits={}</li>",
+            strings.total_strings_scanned,
+            strings.suspicious_hits.len()
+        ));
+    }
+
+    format!("<h2>Static Artifacts</h2><ul>{}</ul>", rows.join(""))
 }
 
 fn timestamp_string() -> String {
@@ -1388,3 +1818,50 @@ fn truncate_middle(text: &str, max_chars: usize) -> String {
     format!("{}...{}", head, tail)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run_result(name: &str, exit_code: i32, timed_out: bool, duration_ms: u128) -> RunResult {
+        RunResult {
+            scenario: name.to_string(),
+            exit_code: Some(exit_code),
+            timed_out,
+            duration_ms,
+            stdout_len: 0,
+            stderr_len: 0,
+            failure_reason: String::new(),
+            trace: RuntimeTrace {
+                scenario_kind: "runtime".to_string(),
+                sandbox_profile: "limited".to_string(),
+                env_policy: "inherit".to_string(),
+                working_dir: ".".to_string(),
+                started_unix: 0,
+                finished_unix: 0,
+                events: Vec::new(),
+                stdout_preview: String::new(),
+                stderr_preview: String::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn runtime_summary_includes_percentiles_and_flaky_state() {
+        let runtime = vec![
+            run_result("a", 0, false, 10),
+            run_result("b", 1, false, 20),
+            run_result("c", 0, true, 50),
+        ];
+
+        let summary = summarize_runtime(&runtime);
+
+        assert_eq!(summary.runs, 3);
+        assert_eq!(summary.timeout_count, 1);
+        assert_eq!(summary.non_zero_exit_count, 1);
+        assert_eq!(summary.p50_duration_ms, 20);
+        assert_eq!(summary.p95_duration_ms, 50);
+        assert!(summary.flaky);
+        assert_eq!(summary.flakiness_percent, 66);
+        assert_eq!(summary.stability_percent, 34);
+    }
+}

@@ -22,6 +22,7 @@ pub(crate) fn parse_args(args: Vec<String>) -> Result<Config, String> {
     let mut custom_modules = Vec::new();
     let mut confirm_extended_tests = false;
     let mut list_lab_modules = false;
+    let mut list_scenarios = false;
     let mut export_md = false;
     let mut export_html = false;
     let mut explicit_mode = false;
@@ -215,6 +216,9 @@ pub(crate) fn parse_args(args: Vec<String>) -> Result<Config, String> {
             "--list-lab-modules" => {
                 list_lab_modules = true;
             }
+            "--list-scenarios" => {
+                list_scenarios = true;
+            }
             "--modules" => {
                 i += 1;
                 if i >= args.len() {
@@ -276,6 +280,7 @@ pub(crate) fn parse_args(args: Vec<String>) -> Result<Config, String> {
         custom_modules,
         confirm_extended_tests,
         list_lab_modules,
+        list_scenarios,
         export_md,
         export_html,
     })
@@ -306,6 +311,14 @@ mod tests {
         let cfg = parse_args(args).expect("parse should succeed");
         assert_eq!(cfg.analysis_mode, AnalysisMode::Pentest);
         assert!(cfg.confirm_extended_tests);
+    }
+
+    #[test]
+    fn list_scenarios_flag_is_parsed() {
+        let mut args = base_args();
+        args.push("--list-scenarios".to_string());
+        let cfg = parse_args(args).expect("parse should succeed");
+        assert!(cfg.list_scenarios);
     }
 
     #[test]

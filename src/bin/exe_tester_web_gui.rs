@@ -802,6 +802,12 @@ fn render_report_markdown(report: &Value) -> String {
         .and_then(Value::as_str)
         .unwrap_or("UNKNOWN");
     let score = report.get("score").and_then(Value::as_u64).unwrap_or(0);
+    let severity = report.get("summary").and_then(|v| v.get("severity"));
+    let runtime_summary = report.get("summary").and_then(|v| v.get("runtime"));
+    let artifacts = report.get("artifacts");
+    let pe = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("pe"));
+    let source = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("source"));
+    let strings = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("strings"));
 
     let mut out = String::new();
     out.push_str("# Metsuki Report\n\n");
@@ -809,6 +815,73 @@ fn render_report_markdown(report: &Value) -> String {
     out.push_str(&format!("- Schema: {}\n", schema));
     out.push_str(&format!("- Final status: {}\n", status));
     out.push_str(&format!("- Score: {}\n\n", score));
+    if let Some(severity) = severity {
+        out.push_str("## Summary\n\n");
+        out.push_str(&format!(
+            "- Severity totals: PASS={} WARN={} FAIL={} TOTAL={}\n",
+            severity.get("pass").and_then(Value::as_u64).unwrap_or(0),
+            severity.get("warn").and_then(Value::as_u64).unwrap_or(0),
+            severity.get("fail").and_then(Value::as_u64).unwrap_or(0),
+            severity.get("total").and_then(Value::as_u64).unwrap_or(0),
+        ));
+        if let Some(runtime_summary) = runtime_summary {
+            out.push_str(&format!(
+                "- Runtime: runs={} timeouts={} non-zero={} p50={}ms p95={}ms flaky={} flakiness={}% stability={}%\n\n",
+                runtime_summary.get("runs").and_then(Value::as_u64).unwrap_or(0),
+                runtime_summary.get("timeout_count").and_then(Value::as_u64).unwrap_or(0),
+                runtime_summary.get("non_zero_exit_count").and_then(Value::as_u64).unwrap_or(0),
+                runtime_summary.get("p50_duration_ms").and_then(Value::as_u64).unwrap_or(0),
+                runtime_summary.get("p95_duration_ms").and_then(Value::as_u64).unwrap_or(0),
+                runtime_summary.get("flaky").and_then(Value::as_bool).unwrap_or(false),
+                runtime_summary.get("flakiness_percent").and_then(Value::as_u64).unwrap_or(0),
+                runtime_summary.get("stability_percent").and_then(Value::as_u64).unwrap_or(0),
+            ));
+        } else {
+            out.push('\n');
+        }
+    }
+    if let Some(artifacts) = artifacts {
+        out.push_str("## Static Artifacts\n\n");
+        out.push_str(&format!(
+            "- Target kind: {}\n",
+            artifacts.get("target_kind").and_then(Value::as_str).unwrap_or("-")
+        ));
+        out.push_str(&format!(
+            "- File size: {} bytes\n",
+            artifacts.get("file_size_bytes").and_then(Value::as_u64).unwrap_or(0)
+        ));
+        if let Some(pe) = pe {
+            out.push_str(&format!(
+                "- PE: arch={} sections={} overlay={} cert_table={} imports={}\n",
+                pe.get("arch").and_then(Value::as_str).unwrap_or("-"),
+                pe.get("section_count").and_then(Value::as_u64).unwrap_or(0),
+                pe.get("overlay_bytes").and_then(Value::as_u64).unwrap_or(0),
+                pe.get("certificate_table_bytes").and_then(Value::as_u64).unwrap_or(0),
+                pe.get("imports").and_then(|v| v.get("total")).and_then(Value::as_u64).unwrap_or(0)
+            ));
+        }
+        if let Some(source) = source {
+            out.push_str(&format!(
+                "- Source: lang={} lines={} long_lines={}\n",
+                source.get("language").and_then(Value::as_str).unwrap_or("-"),
+                source.get("line_count").and_then(Value::as_u64).unwrap_or(0),
+                source.get("long_lines").and_then(Value::as_u64).unwrap_or(0)
+            ));
+        }
+        if let Some(strings) = strings {
+            out.push_str(&format!(
+                "- Strings: scanned={} suspicious_hits={}\n\n",
+                strings.get("total_strings_scanned").and_then(Value::as_u64).unwrap_or(0),
+                strings
+                    .get("suspicious_hits")
+                    .and_then(Value::as_array)
+                    .map(|v| v.len())
+                    .unwrap_or(0)
+            ));
+        } else {
+            out.push('\n');
+        }
+    }
 
     out.push_str("## Findings\n\n");
     out.push_str("| Severity | Code | Category | Points | Message |\n");
@@ -858,6 +931,13 @@ fn render_report_html(report: &Value) -> String {
     let schema = esc(report.get("schema_version").and_then(Value::as_str).unwrap_or("unknown"));
     let status = esc(report.get("final_status").and_then(Value::as_str).unwrap_or("UNKNOWN"));
     let score = report.get("score").and_then(Value::as_u64).unwrap_or(0);
+    let summary = report.get("summary");
+    let severity = summary.and_then(|v| v.get("severity"));
+    let runtime_summary = summary.and_then(|v| v.get("runtime"));
+    let artifacts = report.get("artifacts");
+    let pe = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("pe"));
+    let source = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("source"));
+    let strings = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("strings"));
 
     let mut findings_rows = String::new();
     if let Some(findings) = report.get("findings").and_then(Value::as_array) {
@@ -891,9 +971,65 @@ fn render_report_html(report: &Value) -> String {
         }
     }
 
+    let summary_html = format!(
+        "<p><b>Severity totals:</b> PASS={} WARN={} FAIL={} TOTAL={}<br><b>Runtime:</b> runs={} timeouts={} non-zero={} p50={}ms p95={}ms flaky={} flakiness={}% stability={}%</p>",
+        severity.and_then(|v| v.get("pass")).and_then(Value::as_u64).unwrap_or(0),
+        severity.and_then(|v| v.get("warn")).and_then(Value::as_u64).unwrap_or(0),
+        severity.and_then(|v| v.get("fail")).and_then(Value::as_u64).unwrap_or(0),
+        severity.and_then(|v| v.get("total")).and_then(Value::as_u64).unwrap_or(0),
+        runtime_summary.and_then(|v| v.get("runs")).and_then(Value::as_u64).unwrap_or(0),
+        runtime_summary.and_then(|v| v.get("timeout_count")).and_then(Value::as_u64).unwrap_or(0),
+        runtime_summary.and_then(|v| v.get("non_zero_exit_count")).and_then(Value::as_u64).unwrap_or(0),
+        runtime_summary.and_then(|v| v.get("p50_duration_ms")).and_then(Value::as_u64).unwrap_or(0),
+        runtime_summary.and_then(|v| v.get("p95_duration_ms")).and_then(Value::as_u64).unwrap_or(0),
+        esc(&runtime_summary.and_then(|v| v.get("flaky")).and_then(Value::as_bool).unwrap_or(false).to_string()),
+        runtime_summary.and_then(|v| v.get("flakiness_percent")).and_then(Value::as_u64).unwrap_or(0),
+        runtime_summary.and_then(|v| v.get("stability_percent")).and_then(Value::as_u64).unwrap_or(0),
+    );
+    let artifacts_html = format!(
+        "<h2>Static Artifacts</h2><ul><li><b>Target kind:</b> {}</li><li><b>File size:</b> {} bytes</li>{}{}{}</ul>",
+        esc(artifacts.and_then(|v| v.get("target_kind")).and_then(Value::as_str).unwrap_or("-")),
+        artifacts.and_then(|v| v.get("file_size_bytes")).and_then(Value::as_u64).unwrap_or(0),
+        if let Some(pe) = pe {
+            format!(
+                "<li><b>PE:</b> arch={} sections={} overlay={} cert_table={} imports={}</li>",
+                esc(pe.get("arch").and_then(Value::as_str).unwrap_or("-")),
+                pe.get("section_count").and_then(Value::as_u64).unwrap_or(0),
+                pe.get("overlay_bytes").and_then(Value::as_u64).unwrap_or(0),
+                pe.get("certificate_table_bytes").and_then(Value::as_u64).unwrap_or(0),
+                pe.get("imports").and_then(|v| v.get("total")).and_then(Value::as_u64).unwrap_or(0)
+            )
+        } else {
+            String::new()
+        },
+        if let Some(source) = source {
+            format!(
+                "<li><b>Source:</b> lang={} lines={} long_lines={}</li>",
+                esc(source.get("language").and_then(Value::as_str).unwrap_or("-")),
+                source.get("line_count").and_then(Value::as_u64).unwrap_or(0),
+                source.get("long_lines").and_then(Value::as_u64).unwrap_or(0)
+            )
+        } else {
+            String::new()
+        },
+        if let Some(strings) = strings {
+            format!(
+                "<li><b>Strings:</b> scanned={} suspicious_hits={}</li>",
+                strings.get("total_strings_scanned").and_then(Value::as_u64).unwrap_or(0),
+                strings
+                    .get("suspicious_hits")
+                    .and_then(Value::as_array)
+                    .map(|v| v.len())
+                    .unwrap_or(0)
+            )
+        } else {
+            String::new()
+        },
+    );
+
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Metsuki Report</title><style>body{{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#1f2937}}table{{border-collapse:collapse;width:100%;margin:12px 0}}th,td{{border:1px solid #d1d5db;padding:8px;text-align:left}}th{{background:#f3f4f6}}h1,h2{{margin:12px 0 8px}}</style></head><body><h1>Metsuki Report</h1><p><b>Target:</b> {}<br><b>Schema:</b> {}<br><b>Final status:</b> {}<br><b>Score:</b> {}</p><h2>Findings</h2><table><thead><tr><th>Severity</th><th>Code</th><th>Category</th><th>Points</th><th>Message</th></tr></thead><tbody>{}</tbody></table><h2>Runtime</h2><table><thead><tr><th>Scenario</th><th>Exit</th><th>Timeout</th><th>Duration ms</th><th>stdout</th><th>stderr</th><th>Reason</th></tr></thead><tbody>{}</tbody></table></body></html>",
-        target, schema, status, score, findings_rows, runtime_rows
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Metsuki Report</title><style>body{{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#1f2937}}table{{border-collapse:collapse;width:100%;margin:12px 0}}th,td{{border:1px solid #d1d5db;padding:8px;text-align:left}}th{{background:#f3f4f6}}h1,h2{{margin:12px 0 8px}}</style></head><body><h1>Metsuki Report</h1><p><b>Target:</b> {}<br><b>Schema:</b> {}<br><b>Final status:</b> {}<br><b>Score:</b> {}</p><h2>Summary</h2>{}{}<h2>Findings</h2><table><thead><tr><th>Severity</th><th>Code</th><th>Category</th><th>Points</th><th>Message</th></tr></thead><tbody>{}</tbody></table><h2>Runtime</h2><table><thead><tr><th>Scenario</th><th>Exit</th><th>Timeout</th><th>Duration ms</th><th>stdout</th><th>stderr</th><th>Reason</th></tr></thead><tbody>{}</tbody></table></body></html>",
+        target, schema, status, score, summary_html, artifacts_html, findings_rows, runtime_rows
     )
 }
 
@@ -955,9 +1091,9 @@ fn build_analysis_command(
 ) -> Command {
     let mut command = Command::new(cli_path);
     command
+        .arg(target)
         .arg("--power-profile")
         .arg(plan.profile)
-        .arg(target)
         .arg("--timeout")
         .arg(plan.timeout_secs.max(1).to_string())
         .arg("--runs")
@@ -1080,4 +1216,36 @@ fn emit_event(webview: &WebView, event: &str, payload: Value) {
         event: Some(event.to_string()),
     };
     send_to_webview(webview, &envelope);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_analysis_command_places_target_before_flags() {
+        let command = build_analysis_command(
+            PathBuf::from("exe_tester.exe"),
+            Path::new("sample.exe"),
+            Path::new("logs"),
+            RunPlan {
+                profile: "BASIC",
+                mode: AnalysisMode::Min,
+                verdict_mode: "BALANCED",
+                runs: 4,
+                timeout_secs: 4,
+                sandbox_profile: "limited",
+            },
+            None,
+            None,
+        );
+
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(args.first().map(String::as_str), Some("sample.exe"));
+        assert_eq!(args.get(1).map(String::as_str), Some("--power-profile"));
+    }
 }

@@ -765,8 +765,211 @@ const state = {
       const details = document.getElementById("detailsBox");
       live.textContent = state.logs.join("\n");
       live.scrollTop = live.scrollHeight;
-      details.textContent = state.logs.slice(-120).join("\n");
-      details.scrollTop = details.scrollHeight;
+      if (!state.report) {
+        details.classList.remove("details-rich");
+        details.textContent = state.logs.slice(-120).join("\n");
+        details.scrollTop = details.scrollHeight;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function formatBool(value) {
+      return value ? "yes" : "no";
+    }
+
+    function formatShortBytes(value) {
+      const size = Number(value || 0);
+      if (size < 1024) return `${size} B`;
+      if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+      return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    function renderDetailChips(items) {
+      return `<div class="details-grid">${items.map((item) => `
+        <div class="details-chip">
+          <div class="details-chip-k">${escapeHtml(item.label)}</div>
+          <div class="details-chip-v">${escapeHtml(item.value)}</div>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function renderScenarioDetails(runtimeRow) {
+      if (!runtimeRow) return "";
+      const trace = runtimeRow.trace || {};
+      const events = Array.isArray(trace.events) ? trace.events : [];
+      const previews = [];
+      if (trace.stdout_preview) {
+        previews.push(`<div class="preview-block"><strong>stdout preview</strong>\n${escapeHtml(trace.stdout_preview)}</div>`);
+      }
+      if (trace.stderr_preview) {
+        previews.push(`<div class="preview-block"><strong>stderr preview</strong>\n${escapeHtml(trace.stderr_preview)}</div>`);
+      }
+
+      return `
+        <section class="details-section">
+          <h4>Selected Scenario</h4>
+          ${renderDetailChips([
+            { label: "Scenario", value: runtimeRow.scenario || "-" },
+            { label: "Exit code", value: runtimeRow.exit_code ?? "null" },
+            { label: "Timed out", value: formatBool(runtimeRow.timed_out) },
+            { label: "Duration", value: `${runtimeRow.duration_ms || 0} ms` },
+            { label: "stdout", value: formatShortBytes(runtimeRow.stdout_len || 0) },
+            { label: "stderr", value: formatShortBytes(runtimeRow.stderr_len || 0) },
+          ])}
+          <div class="preview-block"><strong>Failure reason</strong>\n${escapeHtml(runtimeRow.failure_reason || "-")}</div>
+        </section>
+        <section class="details-section">
+          <h4>Trace Timeline</h4>
+          <div class="trace-events">
+            ${events.map((event) => `
+              <div class="trace-event">
+                <div class="trace-head">
+                  <span>${escapeHtml(event.stage || "event")}</span>
+                  <span>${escapeHtml(`${event.at_ms || 0} ms`)}</span>
+                </div>
+                <div class="trace-detail">${escapeHtml(event.detail || "-")}</div>
+              </div>
+            `).join("") || `<div class="trace-event"><div class="trace-detail">No runtime trace events.</div></div>`}
+          </div>
+          ${previews.join("")}
+        </section>
+      `;
+    }
+
+    function renderReportOverview(report) {
+      const summary = report.summary || {};
+      const severity = summary.severity || {};
+      const runtimeSummary = summary.runtime || {};
+      const artifacts = report.artifacts || {};
+      const staticAnalysis = artifacts.static_analysis || {};
+      const pe = staticAnalysis.pe || null;
+      const source = staticAnalysis.source || null;
+      const strings = staticAnalysis.strings || null;
+      const telemetry = report.telemetry || {};
+      const enabledModules = (telemetry.selected_modules || []).filter((m) => m.status === "enabled");
+      const suspiciousImports = pe && pe.imports && Array.isArray(pe.imports.suspicious) ? pe.imports.suspicious : [];
+      const sections = pe && Array.isArray(pe.sections) ? pe.sections.slice(0, 6) : [];
+
+      const overviewSections = [
+        `<section class="details-section">
+          <h4>Report Summary</h4>
+          ${renderDetailChips([
+            { label: "Final", value: report.final_status || "-" },
+            { label: "Score", value: report.score || 0 },
+            { label: "Pass / Warn / Fail", value: `${severity.pass || 0} / ${severity.warn || 0} / ${severity.fail || 0}` },
+            { label: "P50 / P95", value: `${runtimeSummary.p50_duration_ms || 0} / ${runtimeSummary.p95_duration_ms || 0} ms` },
+            { label: "Flaky", value: formatBool(runtimeSummary.flaky) },
+            { label: "Stability", value: `${runtimeSummary.stability_percent || 0}%` },
+          ])}
+        </section>`
+      ];
+
+      if (pe) {
+        overviewSections.push(`
+          <section class="details-section">
+            <h4>PE Snapshot</h4>
+            ${renderDetailChips([
+              { label: "Architecture", value: pe.arch || "-" },
+              { label: "DLL", value: formatBool(pe.is_dll) },
+              { label: "Sections", value: pe.section_count || 0 },
+              { label: "Overlay", value: formatShortBytes(pe.overlay_bytes || 0) },
+              { label: "Certificate table", value: formatShortBytes(pe.certificate_table_bytes || 0) },
+              { label: "Entry point RVA", value: pe.entry_point_rva != null ? `0x${Number(pe.entry_point_rva).toString(16).toUpperCase()}` : "-" },
+            ])}
+            ${renderDetailChips([
+              { label: "DEP", value: formatBool(pe.mitigations && pe.mitigations.dep) },
+              { label: "ASLR", value: formatBool(pe.mitigations && pe.mitigations.aslr) },
+              { label: "CFG", value: formatBool(pe.mitigations && pe.mitigations.cfg) },
+              { label: "Imports", value: pe.imports ? pe.imports.total || 0 : 0 },
+            ])}
+            ${suspiciousImports.length ? `<ul class="detail-list">${suspiciousImports.map((name) => `<li>${escapeHtml(name)}</li>`).join("")}</ul>` : `<div class="details-chip-v">No suspicious imports flagged.</div>`}
+          </section>
+        `);
+      }
+
+      if (sections.length) {
+        overviewSections.push(`
+          <section class="details-section">
+            <h4>Sections</h4>
+            <div class="trace-events">
+              ${sections.map((section) => `
+                <div class="trace-event">
+                  <div class="trace-head">
+                    <span>${escapeHtml(section.name || "?")}</span>
+                    <span>H=${Number(section.entropy || 0).toFixed(2)}</span>
+                  </div>
+                  <div class="trace-detail">raw=${escapeHtml(formatShortBytes(section.raw_size || 0))} virt=${escapeHtml(formatShortBytes(section.virtual_size || 0))} R=${formatBool(section.readable)} W=${formatBool(section.writable)} X=${formatBool(section.executable)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+        `);
+      }
+
+      if (source) {
+        overviewSections.push(`
+          <section class="details-section">
+            <h4>Source Snapshot</h4>
+            ${renderDetailChips([
+              { label: "Language", value: source.language || "-" },
+              { label: "Lines", value: source.line_count || 0 },
+              { label: "Mostly text", value: formatBool(source.mostly_text) },
+              { label: "Long lines", value: source.long_lines || 0 },
+              { label: "Unbalanced delimiters", value: formatBool(source.unbalanced_delimiters) },
+              { label: "Suspicious hits", value: (source.suspicious_hits || []).length },
+            ])}
+          </section>
+        `);
+      }
+
+      if (strings) {
+        overviewSections.push(`
+          <section class="details-section">
+            <h4>Strings</h4>
+            ${renderDetailChips([
+              { label: "Scanned", value: strings.total_strings_scanned || 0 },
+              { label: "Suspicious hits", value: (strings.suspicious_hits || []).length },
+            ])}
+            ${Array.isArray(strings.suspicious_hits) && strings.suspicious_hits.length ? `<ul class="detail-list">${strings.suspicious_hits.map((hit) => `<li>${escapeHtml(hit)}</li>`).join("")}</ul>` : `<div class="details-chip-v">No suspicious string hits recorded.</div>`}
+          </section>
+        `);
+      }
+
+      overviewSections.push(`
+        <section class="details-section">
+          <h4>Security-Lab</h4>
+          ${renderDetailChips([
+            { label: "Profile", value: telemetry.profile || "-" },
+            { label: "Enabled modules", value: enabledModules.length },
+            { label: "Disassembly signals", value: telemetry.coverage ? telemetry.coverage.disassembly_signals || 0 : 0 },
+            { label: "Runtime traces", value: telemetry.coverage ? telemetry.coverage.runtime_traces || 0 : 0 },
+          ])}
+          ${enabledModules.length ? `<ul class="detail-list">${enabledModules.slice(0, 8).map((module) => `<li>${escapeHtml(module.id)}: ${escapeHtml(module.reason || "active")}</li>`).join("")}</ul>` : `<div class="details-chip-v">No active modules recorded.</div>`}
+        </section>
+      `);
+
+      return overviewSections.join("");
+    }
+
+    function renderDetailsBox() {
+      const details = document.getElementById("detailsBox");
+      if (!state.report) {
+        details.classList.remove("details-rich");
+        details.textContent = state.logs.slice(-120).join("\n");
+        return;
+      }
+
+      const runtimeRow = ((state.report && state.report.runtime) || []).find((row) => row.scenario === state.selectedScenario);
+      details.classList.add("details-rich");
+      details.innerHTML = `<div class="details-rich-wrap">${runtimeRow ? renderScenarioDetails(runtimeRow) : ""}${renderReportOverview(state.report)}</div>`;
+      details.scrollTop = 0;
     }
 
     async function refreshTargetType(path) {
@@ -1244,11 +1447,15 @@ const state = {
       const runtime = (state.report && state.report.runtime) || [];
       for (const r of runtime) {
         const row = document.createElement("tr");
+        row.classList.toggle("is-selected", state.selectedScenario === (r.scenario || null));
         row.innerHTML = `<td>${r.scenario || "-"}</td><td>${r.exit_code}</td><td>${r.timed_out ? tr("yes") : tr("no")}</td><td>${r.duration_ms || 0}</td><td>${r.stdout_len || 0}</td><td>${r.stderr_len || 0}</td>`;
         row.addEventListener("click", () => {
           state.selectedScenario = r.scenario || null;
           document.getElementById("detailsMeta").textContent = tr("scenarioPrefix") + (state.selectedScenario || "-");
           document.getElementById("dScenario").textContent = state.selectedScenario || "-";
+          tbody.querySelectorAll("tr").forEach((item) => item.classList.remove("is-selected"));
+          row.classList.add("is-selected");
+          renderDetailsBox();
         });
         tbody.appendChild(row);
       }
@@ -1258,6 +1465,9 @@ const state = {
       const data = await post("open_report", { path });
       state.report = data;
       state.reportPath = path;
+      state.selectedScenario = null;
+      document.getElementById("detailsMeta").textContent = "-";
+      document.getElementById("dScenario").textContent = "-";
       document.getElementById("reportHint").textContent = path;
       document.getElementById("kStatus").textContent = data.final_status || "-";
       document.getElementById("kScore").textContent = String(data.score || 0);
@@ -1265,6 +1475,7 @@ const state = {
       applyMetrics(data);
       renderFindings();
       renderRuntime();
+      renderDetailsBox();
       document.getElementById("reportsFindingsSection").classList.remove("hidden");
     }
 
@@ -1299,6 +1510,7 @@ const state = {
       document.getElementById("reportsFindingsSection").classList.add("hidden");
       drawSeverityDonut({ pass: 0, warn: 0, fail: 0 });
       drawRuntimeChart({ durations: [], p50: 0, p95: 0 });
+      renderDetailsBox();
       flashNote(tr("reportClosed"));
     }
 

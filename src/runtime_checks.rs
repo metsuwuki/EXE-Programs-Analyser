@@ -81,6 +81,29 @@ pub(crate) fn run_runtime_checks(config: &Config, findings: &mut Vec<Finding>) -
     results
 }
 
+pub(crate) fn print_scenario_catalog(config: &Config) {
+    let scenarios = build_runtime_scenarios(config);
+    println!("=== Runtime Scenario Catalog ===");
+    println!(
+        "mode={} runs={} timeout={}s sandbox={}",
+        config.analysis_mode.as_str(),
+        config.runs,
+        config.timeout_secs,
+        config.sandbox_profile.as_str()
+    );
+    for scenario in scenarios {
+        println!(
+            "- {} | args={} stdin={}B clear_env={} timeout={}s kind={}",
+            scenario.name,
+            scenario.args.len(),
+            scenario.stdin_payload.len(),
+            scenario.clear_env,
+            scenario.timeout_secs,
+            scenario_kind(&scenario.name)
+        );
+    }
+}
+
 fn build_runtime_scenarios(config: &Config) -> Vec<RuntimeScenario> {
     let mut scenarios = vec![
         RuntimeScenario {
