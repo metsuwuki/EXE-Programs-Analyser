@@ -1,4 +1,4 @@
-const state = {
+﻿const state = {
       lang: "en",
       accent: "AMETHYST",
       themeMode: "AUTO",
@@ -8,10 +8,13 @@ const state = {
       reports: [],
       logs: [],
       selectedScenario: null,
+      appInfo: null,
+      targetKind: "unknown",
       pending: new Map(),
       view: "home",
       runStart: 0,
-      progressTick: null
+      progressTick: null,
+      advancedOpen: false
     };
 
     const NAV_VIEW_SELECTOR = ".nav-btn[data-view]";
@@ -31,6 +34,54 @@ const state = {
       const map = t[state.lang] || t.en;
       return map[key] || t.en[key] || key;
     }
+
+    function harmonizeProductCopy() {
+      const sharedKeys = [
+        "topTitle",
+        "topSub",
+        "heroLabel",
+        "heroTitleLead",
+        "heroTitleAccent",
+        "heroSub",
+        "heroTagFindings",
+        "heroTagRuntime",
+        "heroTagDiagnostics",
+        "heroStatParticles",
+        "heroStatRender",
+        "heroStatAccents",
+        "heroStatTransitions",
+        "quickStartTitle",
+        "quickStartStep1",
+        "quickStartStep2",
+        "quickStartStep3",
+        "targetTypePrefix",
+        "targetRuntimeSkipHint",
+        "targetReadyExe",
+        "targetReadyUnsupported",
+        "targetExecutableRequired",
+        "settingsDiagTitle",
+        "lblAppVersion",
+        "lblEngineStatus",
+        "lblResolvedEngine",
+        "lblSettingsPath",
+        "showAdvanced",
+        "hideAdvanced",
+        "statusFailed",
+        "statusStopped",
+        "analysisFailed",
+        "analysisStopped",
+        "emptyStateTitle",
+        "emptyStateCopy"
+      ];
+      ["ru", "uk", "de"].forEach((lang) => {
+        if (!t[lang]) return;
+        sharedKeys.forEach((key) => {
+          if (t.en[key]) t[lang][key] = t.en[key];
+        });
+      });
+    }
+
+    harmonizeProductCopy();
 
     function setText(id, key) {
       const el = document.getElementById(id);
@@ -80,10 +131,6 @@ const state = {
     function pickLang(raw) {
       const v = (raw || "").toLowerCase();
       if (v === "ru" || v === "uk" || v === "de" || v === "en") return v;
-      const n = (navigator.language || "en").toLowerCase();
-      if (n.startsWith("ru")) return "ru";
-      if (n.startsWith("uk")) return "uk";
-      if (n.startsWith("de")) return "de";
       return "en";
     }
 
@@ -111,6 +158,109 @@ const state = {
     function normalizeVerdictMode(value) {
       const raw = String(value || "BALANCED").toUpperCase();
       return VERDICT_MODE_OPTIONS.includes(raw) ? raw : "BALANCED";
+    }
+
+    function formatModeLabel(value) {
+      const raw = String(value || "MIN").toUpperCase();
+      if (raw === "PENTEST") return "DEEP";
+      return "STANDARD";
+    }
+
+    function formatTargetHint(info) {
+      const kind = String((info && info.kind) || "unknown");
+      if (kind === "executable") {
+        return `${tr("targetTypePrefix")} ${tr("targetReadyExe")}`;
+      }
+      return `${tr("targetTypePrefix")} ${tr("targetReadyUnsupported")}`;
+    }
+
+    function setRunState(text) {
+      const el = document.getElementById("stRun");
+      if (el) el.textContent = text;
+    }
+
+    function setUiStatus(key) {
+      const el = document.getElementById("kStatus");
+      if (el) el.textContent = tr(key);
+    }
+
+    function updateRunAvailability(kind) {
+      state.targetKind = String(kind || "unknown");
+      const button = document.getElementById("btnRun");
+      if (!button) return;
+      const ready = state.targetKind === "executable";
+      button.disabled = !ready;
+      button.title = ready ? "" : tr("targetExecutableRequired");
+    }
+
+    function renderAppInfo() {
+      const info = state.appInfo || {};
+      const version = String(info.appVersion || "unknown");
+      const engineStatus = String(info.engineStatusText || "missing");
+      const resolvedPath = String(info.resolvedAnalyzerPath || "-");
+      const settingsPath = String(info.settingsPath || "-");
+
+      const appVersionValue = document.getElementById("appVersionValue");
+      const engineStatusValue = document.getElementById("engineStatusValue");
+      const enginePathValue = document.getElementById("enginePathValue");
+      const settingsPathValue = document.getElementById("settingsPathValue");
+      const footerVersion = document.getElementById("stVersion");
+
+      if (appVersionValue) appVersionValue.textContent = version;
+      if (engineStatusValue) engineStatusValue.textContent = engineStatus;
+      if (enginePathValue) enginePathValue.textContent = resolvedPath;
+      if (settingsPathValue) settingsPathValue.textContent = settingsPath;
+      if (footerVersion) footerVersion.textContent = "app=" + version;
+    }
+
+    function refreshAdvancedUi() {
+      const advancedRow = document.getElementById("assignmentPathInput")?.closest(".row");
+      const confirmRow = document.getElementById("confirmPentest")?.closest(".row");
+      const confirmBox = document.getElementById("confirmPentest");
+      const mode = document.getElementById("modeSelect")?.value || "MIN";
+      const advancedToggle = document.getElementById("advancedToggle");
+
+      if (advancedRow) {
+        advancedRow.classList.toggle("hidden", !state.advancedOpen);
+      }
+
+      if (confirmRow) {
+        const needsVisible = state.advancedOpen || mode === "PENTEST";
+        confirmRow.classList.toggle("hidden", !needsVisible);
+        if (!needsVisible && confirmBox) {
+          confirmBox.checked = false;
+        }
+      }
+
+      if (advancedToggle) {
+        advancedToggle.textContent = tr(state.advancedOpen ? "hideAdvanced" : "showAdvanced");
+      }
+    }
+
+    function setupAdvancedUi() {
+      if (document.getElementById("advancedToggle")) {
+        refreshAdvancedUi();
+        return;
+      }
+      const anchorRow = document.getElementById("outDirInput")?.closest(".row");
+      if (!anchorRow) return;
+
+      const wrap = document.createElement("div");
+      wrap.className = "btn-row";
+      wrap.style.margin = "2px 0 10px";
+
+      const button = document.createElement("button");
+      button.id = "advancedToggle";
+      button.type = "button";
+      button.className = "btn";
+      button.addEventListener("click", () => {
+        state.advancedOpen = !state.advancedOpen;
+        refreshAdvancedUi();
+      });
+
+      wrap.appendChild(button);
+      anchorRow.insertAdjacentElement("afterend", wrap);
+      refreshAdvancedUi();
     }
 
     function resolvedThemeMode(mode) {
@@ -171,6 +321,10 @@ const state = {
       setText("heroStatRender", "heroStatRender");
       setText("heroStatAccents", "heroStatAccents");
       setText("heroStatTransitions", "heroStatTransitions");
+      setText("quickStartTitle", "quickStartTitle");
+      setText("quickStartStep1", "quickStartStep1");
+      setText("quickStartStep2", "quickStartStep2");
+      setText("quickStartStep3", "quickStartStep3");
       setText("lblTarget", "lblTarget");
       setText("targetHelp", "targetHelp");
       setText("btnPickTarget", "btnPickTarget");
@@ -233,6 +387,7 @@ const state = {
       setText("thRuntimeStdout", "thRuntimeStdout");
       setText("thRuntimeStderr", "thRuntimeStderr");
       setText("lblLanguage", "lblLanguage");
+      setText("languageCoverageHint", "languageCoverageHint");
       setText("lblAccent", "lblAccent");
       setText("lblThemeMode", "lblThemeMode");
       setText("lblDefaultMode", "lblDefaultMode");
@@ -240,6 +395,11 @@ const state = {
       setText("lblDefaultSandboxProfile", "lblDefaultSandboxProfile");
       setText("lblReportsDir", "lblReportsDir");
       setText("lblAnalyzerPath", "lblAnalyzerPath");
+      setText("settingsDiagTitle", "settingsDiagTitle");
+      setText("lblAppVersion", "lblAppVersion");
+      setText("lblEngineStatus", "lblEngineStatus");
+      setText("lblResolvedEngine", "lblResolvedEngine");
+      setText("lblSettingsPath", "lblSettingsPath");
       setText("btnSaveSettings", "btnSaveSettings");
       setText("detailsTitle", "detailsTitle");
       setText("dLabelFinalStatus", "dLabelFinalStatus");
@@ -260,21 +420,21 @@ const state = {
       if (["RUNNING", "� ������", "�����Ӫ����", "LAEUFT"].includes(status)) statusEl.textContent = tr("statusRunning");
       if (["DONE", "������", "FERTIG"].includes(status)) statusEl.textContent = tr("statusDone");
       const mode = document.getElementById("modeSelect").value || "MIN";
-      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + mode;
+      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + formatModeLabel(mode);
       document.getElementById("themeBadge").textContent = tr("lblAccent").toUpperCase() + ": " + accentLabel(state.accent || "AMETHYST");
       document.querySelector(".confirm-check-text").textContent = tr("confirmPentest");
       const targetHint = document.getElementById("targetTypeHint");
       if (targetHint && !targetHint.textContent.trim()) {
-        targetHint.textContent = `${tr("targetTypePrefix")} unknown`;
+        targetHint.textContent = `${tr("targetTypePrefix")} ${tr("targetReadyUnsupported")}`;
       }
 
       const langSelect = document.getElementById("langSelect");
       if (langSelect && langSelect.options.length >= 5) {
-        langSelect.options[0].textContent = tr("langAuto");
-        langSelect.options[1].textContent = "English";
-        langSelect.options[2].textContent = "Russian";
-        langSelect.options[3].textContent = "Ukrainian";
-        langSelect.options[4].textContent = "German";
+        langSelect.options[0].textContent = tr("langAutoRecommended");
+        langSelect.options[1].textContent = tr("langEnglish");
+        langSelect.options[2].textContent = tr("langRussianExperimental");
+        langSelect.options[3].textContent = tr("langUkrainianExperimental");
+        langSelect.options[4].textContent = tr("langGermanExperimental");
       }
 
       const accentSelect = document.getElementById("accentSelect");
@@ -303,8 +463,33 @@ const state = {
         themeModeSelect.options[2].textContent = tr("themeModeLight");
       }
 
+      const modeSelect = document.getElementById("modeSelect");
+      if (modeSelect && modeSelect.options.length >= 2) {
+        modeSelect.options[0].textContent = "STANDARD";
+        modeSelect.options[1].textContent = "DEEP";
+      }
+
+      const defaultModeSelect = document.getElementById("defaultModeSelect");
+      if (defaultModeSelect && defaultModeSelect.options.length >= 2) {
+        defaultModeSelect.options[0].textContent = "STANDARD";
+        defaultModeSelect.options[1].textContent = "DEEP";
+      }
+
+      const powerProfileSelect = document.getElementById("powerProfileSelect");
+      if (powerProfileSelect && powerProfileSelect.options.length >= 4) {
+        powerProfileSelect.options[3].textContent = "DEEP RERUN";
+      }
+
+      const defaultPowerProfileSelect = document.getElementById("defaultPowerProfileSelect");
+      if (defaultPowerProfileSelect && defaultPowerProfileSelect.options.length >= 4) {
+        defaultPowerProfileSelect.options[3].textContent = "DEEP RERUN";
+      }
+
       const supportBtn = document.getElementById("btnSupport");
       if (supportBtn) supportBtn.title = tr("navSupport");
+      renderAppInfo();
+      updateRunAvailability(state.targetKind);
+      refreshAdvancedUi();
       syncEnhancedSelects();
     }
 
@@ -648,9 +833,10 @@ const state = {
         sandboxEl.value = "isolated";
       }
 
-      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + modeEl.value;
-      document.getElementById("stMode").textContent = "mode=" + modeEl.value;
+      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + formatModeLabel(modeEl.value);
+      document.getElementById("stMode").textContent = "mode=" + formatModeLabel(modeEl.value);
       document.getElementById("stSandbox").textContent = "sandbox=" + sandboxEl.value;
+      refreshAdvancedUi();
       syncEnhancedSelects();
     }
 
@@ -733,16 +919,39 @@ const state = {
 
       if (envelope.type === "event") {
         if (envelope.event === "analysis-log") addLog(String(envelope.payload || ""));
+        if (envelope.event === "host-error") {
+          addLog("[host:error] " + String(envelope.error || "Unknown host error"));
+          flashNote("Host error");
+        }
         if (envelope.event === "analysis-finished") {
+          const payload = envelope.payload || {};
+          const exitCode = Number(payload.exitCode ?? 2);
+          const cancelled = Boolean(payload.cancelled);
           endProgress();
-          document.getElementById("stRun").textContent = "analysis=idle";
-          document.getElementById("kStatus").textContent = tr("statusDone");
-          if (envelope.payload && envelope.payload.reportPath) {
-            document.getElementById("reportHint").textContent = envelope.payload.reportPath;
-            loadReport(envelope.payload.reportPath);
+          if (cancelled) {
+            setRunState("analysis=stopped");
+            setUiStatus("statusStopped");
+            flashNote(tr("analysisStopped"));
+            return;
           }
-          listReports();
-          flashNote(tr("analysisFinished"));
+
+          if (payload.reportPath) {
+            setRunState("analysis=completed");
+            document.getElementById("reportHint").textContent = payload.reportPath;
+            loadReport(payload.reportPath).catch((e) => {
+              setRunState("analysis=report-load-failed");
+              setUiStatus("statusFailed");
+              addLog("[error] " + e.message);
+            });
+          } else if (exitCode === 0) {
+            setRunState("analysis=idle");
+            setUiStatus("statusDone");
+          } else {
+            setRunState("analysis=failed");
+            setUiStatus("statusFailed");
+          }
+          listReports().catch((e) => addLog("[error] " + e.message));
+          flashNote(exitCode === 0 || payload.reportPath ? tr("analysisFinished") : tr("analysisFailed"));
         }
       }
     }
@@ -850,7 +1059,6 @@ const state = {
       const artifacts = report.artifacts || {};
       const staticAnalysis = artifacts.static_analysis || {};
       const pe = staticAnalysis.pe || null;
-      const source = staticAnalysis.source || null;
       const strings = staticAnalysis.strings || null;
       const telemetry = report.telemetry || {};
       const enabledModules = (telemetry.selected_modules || []).filter((m) => m.status === "enabled");
@@ -913,22 +1121,6 @@ const state = {
         `);
       }
 
-      if (source) {
-        overviewSections.push(`
-          <section class="details-section">
-            <h4>Source Snapshot</h4>
-            ${renderDetailChips([
-              { label: "Language", value: source.language || "-" },
-              { label: "Lines", value: source.line_count || 0 },
-              { label: "Mostly text", value: formatBool(source.mostly_text) },
-              { label: "Long lines", value: source.long_lines || 0 },
-              { label: "Unbalanced delimiters", value: formatBool(source.unbalanced_delimiters) },
-              { label: "Suspicious hits", value: (source.suspicious_hits || []).length },
-            ])}
-          </section>
-        `);
-      }
-
       if (strings) {
         overviewSections.push(`
           <section class="details-section">
@@ -962,7 +1154,8 @@ const state = {
       const details = document.getElementById("detailsBox");
       if (!state.report) {
         details.classList.remove("details-rich");
-        details.textContent = state.logs.slice(-120).join("\n");
+        const recentLogs = state.logs.slice(-120).join("\n");
+        details.textContent = recentLogs || `${tr("emptyStateTitle")}\n\n${tr("emptyStateCopy")}`;
         return;
       }
 
@@ -976,20 +1169,19 @@ const state = {
       const hint = document.getElementById("targetTypeHint");
       const trimmed = String(path || "").trim();
       if (!trimmed) {
-        hint.textContent = `${tr("targetTypePrefix")} unknown`;
+        hint.textContent = `${tr("targetTypePrefix")} ${tr("targetReadyUnsupported")}`;
+        updateRunAvailability("unknown");
         return;
       }
 
       try {
         const info = await post("detect_target_type", { path: trimmed });
         const kind = String((info && info.kind) || "unknown");
-        const lang = info && info.language ? ` (${info.language})` : "";
-        hint.textContent = `${tr("targetTypePrefix")} ${kind}${lang}`;
-        if (kind !== "executable") {
-          addLog("[ui] " + tr("targetRuntimeSkipHint"));
-        }
+        hint.textContent = formatTargetHint(info);
+        updateRunAvailability(kind);
       } catch (e) {
-        hint.textContent = `${tr("targetTypePrefix")} unknown`;
+        hint.textContent = `${tr("targetTypePrefix")} ${tr("targetReadyUnsupported")}`;
+        updateRunAvailability("unknown");
       }
     }
 
@@ -1345,14 +1537,15 @@ const state = {
 
       applyAccent(accent);
       applyThemeMode(themeMode);
-      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + (s.default_mode || "MIN");
-      document.getElementById("stMode").textContent = "mode=" + (s.default_mode || "MIN");
+      document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + formatModeLabel(s.default_mode || "MIN");
+      document.getElementById("stMode").textContent = "mode=" + formatModeLabel(s.default_mode || "MIN");
       document.getElementById("stSandbox").textContent = "sandbox=" + normalizeSandboxProfile(s.sandbox_profile || "limited");
       refreshTargetType(document.getElementById("targetPath").value).catch(() => {});
 
       const selected = (s.language || "auto").toLowerCase();
       state.lang = selected === "auto" ? pickLang("") : pickLang(selected);
       applyTexts();
+      refreshAdvancedUi();
       syncEnhancedSelects();
     }
 
@@ -1361,6 +1554,12 @@ const state = {
       state.settings = s;
       applySettingsToUi(s);
       switchView(state.view);
+    }
+
+    async function loadAppInfo() {
+      const info = await post("app_info", {});
+      state.appInfo = info || null;
+      renderAppInfo();
     }
 
     async function saveUiSettings() {
@@ -1377,6 +1576,7 @@ const state = {
       await post("save_settings", settings);
       state.settings = settings;
       applySettingsToUi(settings);
+      await loadAppInfo();
       addLog("[ui] interface settings saved");
       flashNote(tr("settingsSaved"));
     }
@@ -1466,12 +1666,11 @@ const state = {
       state.report = data;
       state.reportPath = path;
       state.selectedScenario = null;
-      document.getElementById("detailsMeta").textContent = "-";
+      document.getElementById("detailsMeta").textContent = "schema=" + (data.schema_version || "v1");
       document.getElementById("dScenario").textContent = "-";
       document.getElementById("reportHint").textContent = path;
       document.getElementById("kStatus").textContent = data.final_status || "-";
       document.getElementById("kScore").textContent = String(data.score || 0);
-      document.getElementById("stVersion").textContent = "schema=" + (data.schema_version || "v1");
       applyMetrics(data);
       renderFindings();
       renderRuntime();
@@ -1555,14 +1754,22 @@ const state = {
     }
 
     async function runAnalysis() {
-      const targetPath = document.getElementById("targetPath").value;
+      const targetPath = (document.getElementById("targetPath").value || "").trim();
+      if (!targetPath) {
+        addLog("[ui] " + tr("targetExecutableRequired"));
+        flashNote(tr("targetExecutableRequired"));
+        setUiStatus("statusIdle");
+        setRunState("analysis=waiting-for-target");
+        return;
+      }
+
       const targetInfo = await post("detect_target_type", { path: targetPath });
       if (String(targetInfo.kind || "unknown") !== "executable") {
         addLog("[ui] " + tr("targetExecutableRequired"));
         addLog("[ui] " + tr("targetRuntimeSkipHint"));
         flashNote(tr("targetExecutableRequired"));
-        document.getElementById("kStatus").textContent = tr("statusIdle");
-        document.getElementById("stRun").textContent = "analysis=blocked-non-executable";
+        setUiStatus("statusIdle");
+        setRunState("analysis=blocked-non-executable");
         return;
       }
 
@@ -1584,15 +1791,15 @@ const state = {
 
       state.logs.length = 0;
       addLog("[ui] starting analysis...");
-      document.getElementById("kStatus").textContent = tr("statusRunning");
-      document.getElementById("stRun").textContent = "analysis=running";
+      setUiStatus("statusRunning");
+      setRunState("analysis=running");
       startProgress();
       await post("run_analysis", payload);
     }
 
     async function stopAnalysis() {
       await post("stop_analysis", {});
-      document.getElementById("stRun").textContent = "analysis=stop-requested";
+      setRunState("analysis=stop-requested");
       flashNote(tr("stopRequested"));
     }
 

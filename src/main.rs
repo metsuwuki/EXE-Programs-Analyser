@@ -122,16 +122,35 @@ impl TargetKind {
 }
 
 fn main() {
-    match cli::parse_args(env::args().collect()) {
+    let args: Vec<String> = env::args().collect();
+    if let Some(arg1) = args.get(1).map(|s| s.as_str()) {
+        match arg1 {
+            "-h" | "--help" => {
+                print_usage();
+                std::process::exit(0);
+            }
+            "-V" | "--version" => {
+                println!("exe_tester {}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+    }
+
+    match cli::parse_args(args) {
         Ok(config) => run(config),
         Err(msg) => {
             eprintln!("{}", msg);
-            eprintln!(
-                "Usage: exe_tester <path_to_target> [--assignment <path.json>] [--audit-dir <folder>] [--power-profile <BASIC|AUDIT|PENTEST|EXTREME>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--export-format <json|md|html|both>] [--export-md] [--export-html] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--list-scenarios] [--no-security-lab]"
-            );
+            print_usage();
             std::process::exit(64);
         }
     }
+}
+
+fn print_usage() {
+    eprintln!(
+        "Usage: exe_tester <target.exe> [--assignment <path.json>] [--audit-dir <folder>] [--power-profile <BASIC|AUDIT|PENTEST|EXTREME>] [--timeout <sec>] [--runs <count>] [--only-scenario <name>] [--sandbox-profile <none|limited|isolated>] [--out-dir <path>] [--export-format <json|md|html|both>] [--export-md] [--export-html] [--mode <min|pentest>] [--mode-min|--mode-pentest] [--strict|--balanced] [--fuzz-engine <native|libafl>] [--lab-profile <standard|aggressive>] [--modules <id1,id2,...>] [--confirm-extended-tests] [--list-lab-modules] [--list-scenarios] [--no-security-lab]"
+    );
 }
 
 fn run(config: Config) {
@@ -192,6 +211,14 @@ fn run(config: Config) {
     if config.list_scenarios {
         runtime_checks::print_scenario_catalog(&config);
         return;
+    }
+
+    if target_kind != TargetKind::Executable {
+        eprintln!(
+            "Only Windows .exe targets are supported. Received: {}",
+            config.exe_path.display()
+        );
+        std::process::exit(64);
     }
 
     let mut findings = Vec::new();

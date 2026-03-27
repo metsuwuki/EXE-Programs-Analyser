@@ -54,6 +54,7 @@ enum UserEvent {
     AnalysisFinished {
         exit_code: i32,
         report_path: Option<String>,
+        cancelled: bool,
     },
 }
 
@@ -160,7 +161,7 @@ fn run_app() -> Result<(), String> {
     let window_icon = load_window_icon();
 
     let window = WindowBuilder::new()
-        .with_title("Metsuki Workbench")
+        .with_title("Metsuki EXE Analyzer")
         .with_inner_size(LogicalSize::new(1440.0, 900.0))
         .with_min_inner_size(LogicalSize::new(1024.0, 680.0))
         .with_window_icon(window_icon)
@@ -215,11 +216,13 @@ fn run_app() -> Result<(), String> {
             Event::UserEvent(UserEvent::AnalysisFinished {
                 exit_code,
                 report_path,
+                cancelled,
             }) => {
                 state.running = None;
                 let payload = json!({
                     "exitCode": exit_code,
                     "reportPath": report_path,
+                    "cancelled": cancelled,
                 });
                 emit_event(&webview, "analysis-finished", payload);
             }
@@ -341,6 +344,7 @@ fn handle_ipc(
 
     let response = match req.cmd.as_str() {
         "load_settings" => Ok(json!(state.settings)),
+        "app_info" => Ok(app_info_payload(&state.settings)),
         "save_settings" => {
             let parsed: Result<AppSettings, _> = serde_json::from_value(req.payload.clone());
             match parsed {
@@ -533,6 +537,45 @@ fn handle_detect_target_type(payload_value: Value) -> Result<Value, String> {
     }
 }
 
+fn app_info_payload(settings: &AppSettings) -> Value {
+    let configured = settings
+        .analyzer_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+    let configured_path = configured.map(PathBuf::from);
+    let configured_exists = configured_path.as_ref().map(|p| p.exists()).unwrap_or(false);
+    let resolved = core::resolve_cli_path_with_override(settings.analyzer_path.as_deref());
+
+    let engine_status_text = if let Some(path) = resolved.as_ref() {
+        if let Some(configured_path) = configured_path.as_ref() {
+            if path == configured_path {
+                "override configured"
+            } else {
+                "override missing, auto-detected fallback"
+            }
+        } else {
+            "auto-detected"
+        }
+    } else if configured_path.is_some() {
+        if configured_exists {
+            "configured but unresolved"
+        } else {
+            "override path missing"
+        }
+    } else {
+        "missing"
+    };
+
+    json!({
+        "appVersion": env!("CARGO_PKG_VERSION"),
+        "settingsPath": core::settings_path().display().to_string(),
+        "configuredAnalyzerPath": configured_path.as_ref().map(|p| p.display().to_string()),
+        "resolvedAnalyzerPath": resolved.as_ref().map(|p| p.display().to_string()),
+        "engineStatusText": engine_status_text,
+    })
+}
+
 fn pick_target_file() -> Result<Value, String> {
     let dialog = rfd::FileDialog::new()
         .add_filter("Executable files", &["exe"])
@@ -567,7 +610,7 @@ fn start_analysis(
 
     let cli_path = core::resolve_cli_path_with_override(state.settings.analyzer_path.as_deref())
         .ok_or_else(|| {
-            "cannot resolve analysis engine executable. Expected configured analyzer_path, .engine/analyzer_core.exe, or exe_tester.exe".to_string()
+            "cannot find the EXE Analyzer engine. Check Analyzer path in Settings or place exe_tester.exe next to the app.".to_string()
         })?;
 
     let run_plan = resolve_run_plan(&payload, &state.settings);
@@ -612,6 +655,7 @@ fn start_analysis(
                 let _ = proxy.send_event(UserEvent::AnalysisFinished {
                     exit_code: 2,
                     report_path: None,
+                    cancelled: false,
                 });
                 return;
             }
@@ -637,25 +681,30 @@ fn start_analysis(
             });
         }
 
-        let exit_code = loop {
+        let (exit_code, cancelled) = loop {
             if cancel_for_worker.load(Ordering::Relaxed) {
                 let _ = child.kill();
-                break 2;
+                break (2, true);
             }
 
             match child.try_wait() {
-                Ok(Some(status)) => break status.code().unwrap_or(2),
+                Ok(Some(status)) => break (status.code().unwrap_or(2), false),
                 Ok(None) => thread::sleep(std::time::Duration::from_millis(80)),
-                Err(_) => break 2,
+                Err(_) => break (2, false),
             }
         };
 
-        let report_path = core::latest_report_for_target(&out_dir_for_worker, &target_for_worker)
-            .map(|p| p.display().to_string());
+        let report_path = if cancelled {
+            None
+        } else {
+            core::latest_report_for_target(&out_dir_for_worker, &target_for_worker)
+                .map(|p| p.display().to_string())
+        };
 
         let _ = proxy.send_event(UserEvent::AnalysisFinished {
             exit_code,
             report_path,
+            cancelled,
         });
     });
 
@@ -679,7 +728,7 @@ fn launch_scenario_rerun(
     }
 
     let cli_path = core::resolve_cli_path_with_override(analyzer_path.as_deref())
-        .ok_or_else(|| "cannot resolve analysis engine executable".to_string())?;
+        .ok_or_else(|| "cannot find the EXE Analyzer engine".to_string())?;
 
     thread::spawn(move || {
         let mut command = build_rerun_command(cli_path, &target, mode, &scenario);
@@ -806,7 +855,6 @@ fn render_report_markdown(report: &Value) -> String {
     let runtime_summary = report.get("summary").and_then(|v| v.get("runtime"));
     let artifacts = report.get("artifacts");
     let pe = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("pe"));
-    let source = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("source"));
     let strings = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("strings"));
 
     let mut out = String::new();
@@ -858,14 +906,6 @@ fn render_report_markdown(report: &Value) -> String {
                 pe.get("overlay_bytes").and_then(Value::as_u64).unwrap_or(0),
                 pe.get("certificate_table_bytes").and_then(Value::as_u64).unwrap_or(0),
                 pe.get("imports").and_then(|v| v.get("total")).and_then(Value::as_u64).unwrap_or(0)
-            ));
-        }
-        if let Some(source) = source {
-            out.push_str(&format!(
-                "- Source: lang={} lines={} long_lines={}\n",
-                source.get("language").and_then(Value::as_str).unwrap_or("-"),
-                source.get("line_count").and_then(Value::as_u64).unwrap_or(0),
-                source.get("long_lines").and_then(Value::as_u64).unwrap_or(0)
             ));
         }
         if let Some(strings) = strings {
@@ -936,7 +976,6 @@ fn render_report_html(report: &Value) -> String {
     let runtime_summary = summary.and_then(|v| v.get("runtime"));
     let artifacts = report.get("artifacts");
     let pe = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("pe"));
-    let source = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("source"));
     let strings = artifacts.and_then(|v| v.get("static_analysis")).and_then(|v| v.get("strings"));
 
     let mut findings_rows = String::new();
@@ -987,7 +1026,7 @@ fn render_report_html(report: &Value) -> String {
         runtime_summary.and_then(|v| v.get("stability_percent")).and_then(Value::as_u64).unwrap_or(0),
     );
     let artifacts_html = format!(
-        "<h2>Static Artifacts</h2><ul><li><b>Target kind:</b> {}</li><li><b>File size:</b> {} bytes</li>{}{}{}</ul>",
+        "<h2>Static Artifacts</h2><ul><li><b>Target kind:</b> {}</li><li><b>File size:</b> {} bytes</li>{}{}</ul>",
         esc(artifacts.and_then(|v| v.get("target_kind")).and_then(Value::as_str).unwrap_or("-")),
         artifacts.and_then(|v| v.get("file_size_bytes")).and_then(Value::as_u64).unwrap_or(0),
         if let Some(pe) = pe {
@@ -998,16 +1037,6 @@ fn render_report_html(report: &Value) -> String {
                 pe.get("overlay_bytes").and_then(Value::as_u64).unwrap_or(0),
                 pe.get("certificate_table_bytes").and_then(Value::as_u64).unwrap_or(0),
                 pe.get("imports").and_then(|v| v.get("total")).and_then(Value::as_u64).unwrap_or(0)
-            )
-        } else {
-            String::new()
-        },
-        if let Some(source) = source {
-            format!(
-                "<li><b>Source:</b> lang={} lines={} long_lines={}</li>",
-                esc(source.get("language").and_then(Value::as_str).unwrap_or("-")),
-                source.get("line_count").and_then(Value::as_u64).unwrap_or(0),
-                source.get("long_lines").and_then(Value::as_u64).unwrap_or(0)
             )
         } else {
             String::new()

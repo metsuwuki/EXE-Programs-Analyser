@@ -1,88 +1,91 @@
 # Metsuki EXE Analyzer
 
 <p align="center">
-	Windows-focused executable analysis toolkit with a desktop WebView UI, CLI automation support, and profile-driven security checks.
+  Windows EXE triage and runtime diagnostics for fast first-pass analysis.
 </p>
 
 <p align="center">
-	<img alt="Rust" src="https://img.shields.io/badge/Rust-1.77+-CE422B?logo=rust&logoColor=white">
-	<img alt="UI" src="https://img.shields.io/badge/UI-WebView2%20Desktop-0EA5E9?logo=windows-terminal&logoColor=white">
-	<img alt="CLI" src="https://img.shields.io/badge/CLI-exe__tester-2E8B57">
-	<img alt="Platform" src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white">
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.77+-CE422B?logo=rust&logoColor=white">
+  <img alt="UI" src="https://img.shields.io/badge/UI-WebView2%20Desktop-0EA5E9?logo=windows-terminal&logoColor=white">
+  <img alt="CLI" src="https://img.shields.io/badge/CLI-exe__tester-2E8B57">
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white">
 </p>
 
 ---
 
-## ✨ Features
+## What It Is
 
-- 🔎 PE integrity checks: sections, entropy, imports, mitigations, overlay indicators
-- 🧪 Runtime scenarios with timing diagnostics and evidence timeline
-- 📊 Structured findings with score and severity breakdown
-- 🧩 Security-Lab profiles with custom module selection
-- ⚡ Power profiles (BASIC / AUDIT / PENTEST / EXTREME) with pre-tuned defaults
-- 🌐 Localization: English, Russian, Ukrainian, German
-- 🖥 Desktop host (`exe_tester_web_gui.exe`) + automation-ready CLI (`exe_tester`)
+Metsuki EXE Analyzer is a Windows-focused tool for inspecting `.exe` files, running practical runtime scenarios, and generating reviewable reports.
 
----
+It is built for:
 
-## 👨‍💻 What It Can Actually Do
-
-- Takes your `.exe` through a 4-phase pipeline: static checks, runtime scenarios, security modules, and a final report.
-- Static analysis inspects sections, imports, mitigations (ASLR/DEP/CFG), suspicious patterns, and risk indicators.
-- Runtime analysis stresses the target with intentionally rough inputs: empty stdin, noisy stdin, long args, unicode, shell-like symbols, broken paths, clean env.
-- Tracks useful engineering metrics: exit codes, timeouts, duration (p50/p95), run stability, and flakiness.
-- Produces structured findings with severity + score: readable in the UI and easy to consume in CI/automation.
-- Supports `MIN` and `PENTEST` analysis modes — quick/safe when needed, deeper/aggressive when required.
-- Security-Lab modules can be enabled by profile or manually: PE rules, ASM heuristics, taint/dataflow, runtime trace, fuzzing, regression checks.
-- Includes both a desktop UI for hands-on work and a CLI for scripts/pipelines.
-- Includes a teacher/audit batch flow: provide an assignment JSON, get bulk analysis with summary JSON/CSV and a ready rerun cmd.
-- Ships as both a portable build and a setup installer.
+- QA engineers validating packaged desktop builds
+- security reviewers doing fast executable triage
+- support and release teams collecting reproducible evidence
+- power users who want a local EXE analysis dashboard plus CLI automation
 
 ---
 
-## 📦 What Is Included
+## What It Is Not
 
-| File | Description |
-|---|---|
-| `exe_tester_web_gui.exe` | Desktop WebView-based UI host |
-| `.engine/analyzer_core.exe` | Internal analysis engine (hidden folder, used by the desktop app) |
-| `exe_tester` | CLI entrypoint for automation and local testing |
-
----
-
-## 🧭 Analysis Modes
-
-| Mode | Verdict | Lab profile | Notes |
-|---|---|---|---|
-| `MIN` | BALANCED | standard | Safe default, no explicit opt-in required |
-| `PENTEST` | STRICT | aggressive | Deeper checks; `--mode-pentest` enables opt-in automatically |
+- It is not an antivirus.
+- It does not promise a reliable malware verdict.
+- It is not a replacement for deep reverse engineering or full sandbox research.
+- It is not positioned as a source-code analyzer in the main product workflow.
 
 ---
 
-## ⚡ Power Profiles
+## Core Value
 
-Power profiles pre-configure runs, timeout, analysis mode, verdict mode, and sandbox level in one flag.
-Individual flags (`--runs`, `--timeout`, `--strict`, `--sandbox-profile`) always override profile defaults.
+- EXE-first workflow: choose a Windows executable, run analysis, review findings
+- PE-focused checks: sections, entropy, imports, mitigations, signatures, overlay indicators
+- runtime diagnostics: scenario runs, timing, exit codes, timeouts, stdout/stderr evidence
+- structured output: JSON reports with optional Markdown and HTML exports
+- desktop UI for hands-on use and CLI for scripting
+- portable bundle and installer packaging
 
-| Profile | Mode | Verdict | Runs | Timeout | Sandbox |
+---
+
+## User-Facing Modes
+
+The product exposes two simple analysis modes in the GUI:
+
+- `STANDARD`: the recommended first pass for most EXE reviews
+- `DEEP`: a broader rerun for harder cases or when you want more runtime coverage
+
+CLI mapping:
+
+- `STANDARD` maps to `MIN`
+- `DEEP` maps to `PENTEST`
+
+---
+
+## Power Profiles
+
+Power profiles are presets for runs, timeout, mode, and sandbox level.
+
+| Profile | User meaning | CLI mode | Runs | Timeout | Sandbox |
 |---|---|---|---|---|---|
-| `BASIC` | MIN | BALANCED | 4 | 4 s | limited |
-| `AUDIT` | MIN | BALANCED | 8 | 5 s | limited |
-| `PENTEST` | PENTEST | STRICT | 10 | 6 s | isolated |
-| `EXTREME` | PENTEST | STRICT | 12 | 8 s | isolated |
+| `BASIC` | quick local pass | `MIN` | 4 | 4 s | limited |
+| `AUDIT` | steadier review pass | `MIN` | 8 | 5 s | limited |
+| `PENTEST` | deeper strict pass | `PENTEST` | 10 | 6 s | isolated |
+| `EXTREME` | deeper rerun preset, not a separate magic mode | `PENTEST` | 12 | 8 s | isolated |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### End users
+### End Users
 
-1. Open the portable folder: `dist/EXE_Analyzer`
-2. Run: `exe_tester_web_gui.exe`
+1. Open `dist/EXE_Analyzer`
+2. Run `exe_tester_web_gui.exe`
+3. Choose a Windows `.exe`
+4. Pick `STANDARD` or `DEEP`
+5. Run analysis and review the report
 
-Rust/Cargo are not required for end users.
+Rust or Cargo are not required for end users.
 
-### Development
+### Developers
 
 Build all binaries:
 
@@ -96,19 +99,19 @@ Run the desktop UI:
 cargo run --bin exe_tester_web_gui
 ```
 
-Run the CLI — MIN mode:
+Run the CLI:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-min --runs 6 --timeout 4 --out-dir logs
 ```
 
-Run the CLI — PENTEST mode (extended tests are enabled automatically):
+Run the deeper CLI pass:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-pentest --out-dir logs
 ```
 
-Run the CLI — using a power profile:
+Use a power profile:
 
 ```powershell
 cargo run --bin exe_tester -- "C:\path\to\app.exe" --power-profile AUDIT --out-dir logs
@@ -116,40 +119,58 @@ cargo run --bin exe_tester -- "C:\path\to\app.exe" --power-profile AUDIT --out-d
 
 ---
 
-## 🔧 CLI Reference
+## CLI Reference
 
-```
+```text
 exe_tester <target.exe> [options]
 ```
 
+Main supported target: Windows `.exe`
+
+The CLI now rejects non-EXE targets in the primary workflow.
+
 | Flag | Values | Default | Description |
 |---|---|---|---|
-| `--mode-min` | — | ✓ | MIN mode, BALANCED verdict, standard lab profile |
-| `--mode-pentest` | — | | PENTEST mode, STRICT verdict, aggressive lab, opt-in auto-enabled |
-| `--mode` | `min` / `pentest` | `min` | Value-based alternative to `--mode-min` / `--mode-pentest` |
-| `--power-profile` | `BASIC` `AUDIT` `PENTEST` `EXTREME` | `BASIC` | Pre-tuned profile that sets mode, runs, timeout, sandbox |
-| `--runs` | integer ≥ 1 | 4 | Number of runtime scenario runs |
-| `--timeout` | integer ≥ 1 | 4 | Per-run timeout in seconds |
-| `--strict` | — | | Force STRICT verdict mode |
-| `--balanced` | — | | Force BALANCED verdict mode |
-| `--sandbox-profile` | `limited` `isolated` `none` | `limited` | Runtime sandbox isolation level |
-| `--out-dir` | path | `logs` | Output directory for reports |
-| `--export-md` | — | | Export Markdown report alongside JSON |
-| `--export-html` | — | | Export HTML report alongside JSON |
-| `--export-format` | `json` `md` `html` `both` | `json` | Shorthand export selector |
-| `--only-scenario` | name | | Run a single named scenario only |
-| `--assignment` | path | | Assignment JSON for teacher/audit batch flow |
-| `--audit-dir` | path | | Directory of EXE targets for batch audit |
-| `--lab-profile` | `standard` `aggressive` | `standard` | Security-Lab module profile |
-| `--modules` | `id1,id2,...` | | Override active modules (comma-separated IDs) |
-| `--no-security-lab` | — | | Disable Security-Lab entirely |
-| `--list-lab-modules` | — | | Print module status table and exit |
-| `--confirm-extended-tests` | — | | Explicit opt-in for PENTEST/extended checks |
-| `--fuzz-engine` | `native` `libafl` | `native` | Fuzzing engine selection |
+| `--mode-min` | - | yes | first-pass EXE analysis |
+| `--mode-pentest` | - |  | deeper EXE analysis |
+| `--mode` | `min` / `pentest` | `min` | value-based alternative to the mode flags |
+| `--power-profile` | `BASIC` `AUDIT` `PENTEST` `EXTREME` | `BASIC` | preset for mode, runs, timeout, and sandbox |
+| `--runs` | integer >= 1 | 4 | number of runtime scenario runs |
+| `--timeout` | integer >= 1 | 4 | per-run timeout in seconds |
+| `--strict` | - |  | force STRICT verdict mode |
+| `--balanced` | - |  | force BALANCED verdict mode |
+| `--sandbox-profile` | `limited` `isolated` `none` | `limited` | runtime isolation level |
+| `--out-dir` | path | `logs` | output directory for reports |
+| `--export-md` | - |  | export Markdown report |
+| `--export-html` | - |  | export HTML report |
+| `--export-format` | `json` `md` `html` `both` | `json` | shorthand export selector |
+| `--only-scenario` | name |  | rerun one runtime scenario |
+| `--assignment` | path |  | assignment JSON for batch audit flow |
+| `--audit-dir` | path |  | directory of EXE targets for batch audit |
+| `--lab-profile` | `standard` `aggressive` | `standard` | internal security-lab preset for EXE analysis |
+| `--modules` | `id1,id2,...` |  | override active module IDs |
+| `--no-security-lab` | - |  | disable security-lab modules |
+| `--list-lab-modules` | - |  | print module status table and exit |
+| `--confirm-extended-tests` | - |  | explicit opt-in for extended checks |
+| `--fuzz-engine` | `native` `libafl` | `native` | fuzzing engine selection |
 
 ---
 
-## 🏗 Build & Packaging
+## Output
+
+| Path | Contents |
+|---|---|
+| `dist/EXE_Analyzer/` | portable bundle |
+| `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe` | installer |
+| `dist/EXE_Analyzer/SHA256SUMS.txt` | release hash manifest |
+| `dist/EXE_Analyzer/SECURITY_PRECHECK.txt` | pre-release check log |
+| `logs/` | analysis reports |
+
+Settings are stored at `%APPDATA%\Metsuki\exe_analyzer\settings.json`.
+
+---
+
+## Build And Packaging
 
 Build portable package:
 
@@ -157,60 +178,37 @@ Build portable package:
 build_portable.cmd
 ```
 
-Build installer (runs portable build first, then Inno Setup):
+Build installer:
 
 ```powershell
 build_setup.cmd
 ```
 
-Build installer from an already-built portable output:
-
-```powershell
-build_setup.cmd --skip-portable
-```
-
-Full release pipeline — portable + installer + hash manifest:
+Build release artifacts:
 
 ```powershell
 release_artifacts.cmd
 ```
 
-With code signing:
+Verify a portable bundle:
 
 ```powershell
-release_artifacts.cmd --sign
+powershell -ExecutionPolicy Bypass -File scripts/verify_portable.ps1
 ```
 
-Skip the installer step:
-
-```powershell
-release_artifacts.cmd --skip-setup
-```
+Note for maintainers:
+`build_setup.cmd` requires Inno Setup (`ISCC.exe`) to be installed locally.
 
 ---
 
-## 📁 Output Locations
+## Security Notes
 
-| Path | Contents |
-|---|---|
-| `dist/EXE_Analyzer/` | Portable bundle |
-| `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe` | Installer |
-| `dist/EXE_Analyzer/SHA256SUMS.txt` | Release hash manifest |
-| `dist/EXE_Analyzer/SECURITY_PRECHECK.txt` | Pre-release security check log |
-| `logs/` | Analysis reports (JSON; optional MD/HTML) |
-
-Settings are stored at `%APPDATA%\Metsuki\exe_analyzer\settings.json`.
+- `SECURITY.md`: release integrity and false-positive handling
+- `SECURITY_LAB_MODULES.md`: supported EXE-oriented lab modules and presets
 
 ---
 
-## 🛡 Security Docs
+## Repository Notes
 
-- Module matrix and profile behavior: `SECURITY_LAB_MODULES.md`
-- Security and false-positive guidance: `SECURITY.md`
-
----
-
-## 🧱 Repository Notes
-
-- Keep source and scripts in Git: `src/`, `scripts/`, `installer/`, `webui/`, `assets/`
-- Do not commit generated outputs: `target/`, `dist/`, runtime logs
+- Keep source and build scripts in version control: `src/`, `installer/`, `scripts/`, `webui/`, `assets/`
+- Do not commit generated outputs such as `target/`, `dist/`, or runtime logs

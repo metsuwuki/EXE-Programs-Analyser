@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Metsuki Workbench</title>
-    <style>
+  <title>Metsuki EXE Analyzer</title>
+  <style>
 __INLINE_CSS__
   </style>
 </head>
 <body>
   <div id="splash" class="splash">
     <div class="splash-core">
-      <h1 class="splash-title">Metsuki Workbench</h1>
-      <div class="splash-sub" id="splashSub">Loading interface, charts and runtime pipeline...</div>
+      <h1 class="splash-title">Metsuki EXE Analyzer</h1>
+      <div class="splash-sub" id="splashSub">Loading EXE analysis workspace...</div>
       <div class="splash-progress"><i></i></div>
     </div>
   </div>
@@ -28,11 +28,11 @@ __INLINE_CSS__
 
     <header class="topbar">
       <div class="top-title-wrap">
-        <div id="titleMain" class="top-title">Metsuki Analytics Console</div>
-        <div id="titleSub" class="top-sub">Deep runtime and binary diagnostics workspace</div>
+        <div id="titleMain" class="top-title">Metsuki EXE Analyzer</div>
+        <div id="titleSub" class="top-sub">Windows executable triage and runtime diagnostics</div>
       </div>
       <div class="top-meta">
-        <span class="meta-pill" id="modeBadge">MODE: MIN</span>
+        <span class="meta-pill" id="modeBadge">MODE: STANDARD</span>
         <span class="meta-pill" id="themeBadge">ACCENT: AMETHYST</span>
       </div>
     </header>
@@ -50,20 +50,38 @@ __INLINE_CSS__
             <div class="hero-content">
               <div>
                 <div id="heroLabel" class="hero-label">Executable Analyzer</div>
-                <h2 class="hero-title"><span id="heroTitleLead">Program</span> <span id="heroTitleAccent" class="hero-title-accent">Analysis Workspace</span></h2>
-                <p id="heroSub" class="hero-sub">Run checks, inspect findings, and validate runtime behavior from one dashboard.</p>
+                <h2 class="hero-title"><span id="heroTitleLead">EXE</span> <span id="heroTitleAccent" class="hero-title-accent">Analysis Console</span></h2>
+                <p id="heroSub" class="hero-sub">Inspect PE structure, stress runtime behavior, and review reports from one dashboard.</p>
                 <div class="hero-tags">
-                  <span id="heroTagFindings" class="hero-tag">Findings</span>
+                  <span id="heroTagFindings" class="hero-tag">PE Checks</span>
                   <span id="heroTagRuntime" class="hero-tag">Runtime</span>
-                  <span id="heroTagDiagnostics" class="hero-tag">Diagnostics</span>
+                  <span id="heroTagDiagnostics" class="hero-tag">Reports</span>
                 </div>
               </div>
               <div class="hero-stats">
-                <div class="hero-stat"><div class="hero-stat-k">120+</div><div id="heroStatParticles" class="hero-stat-l">Particles</div></div>
-                <div class="hero-stat"><div class="hero-stat-k">60fps</div><div id="heroStatRender" class="hero-stat-l">Target Render</div></div>
-                <div class="hero-stat"><div class="hero-stat-k">10</div><div id="heroStatAccents" class="hero-stat-l">Accent Profiles</div></div>
-                <div class="hero-stat"><div class="hero-stat-k">220ms</div><div id="heroStatTransitions" class="hero-stat-l">Transition Core</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">4</div><div id="heroStatParticles" class="hero-stat-l">Analysis Phases</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">PE</div><div id="heroStatRender" class="hero-stat-l">Static Focus</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">3</div><div id="heroStatAccents" class="hero-stat-l">Report Formats</div></div>
+                <div class="hero-stat"><div class="hero-stat-k">CLI</div><div id="heroStatTransitions" class="hero-stat-l">Automation Ready</div></div>
               </div>
+            </div>
+          </section>
+
+          <section class="start-strip" aria-label="Quick start">
+            <div class="start-card">
+              <div class="start-step">1</div>
+              <div>
+                <div id="quickStartTitle" class="start-title">Quick Start</div>
+                <div id="quickStartStep1" class="start-copy">Choose a Windows `.exe` target.</div>
+              </div>
+            </div>
+            <div class="start-card">
+              <div class="start-step">2</div>
+              <div id="quickStartStep2" class="start-copy">Pick STANDARD for a first pass or DEEP for a broader rerun.</div>
+            </div>
+            <div class="start-card">
+              <div class="start-step">3</div>
+              <div id="quickStartStep3" class="start-copy">Run analysis and review findings, runtime evidence, and exports.</div>
             </div>
           </section>
 
@@ -75,13 +93,13 @@ __INLINE_CSS__
                 <button id="btnPickTarget" class="btn" type="button">Choose File</button>
               </div>
               <div id="targetHelp" class="field-help">Supported: .exe</div>
-              <div id="targetTypeHint" class="field-help">Target type: unknown</div>
+              <div id="targetTypeHint" class="field-help">Target readiness: Requires .exe target</div>
             </div>
             <div class="field" style="grid-column: span 2;">
               <label id="lblMode">Mode</label>
               <select id="modeSelect">
-                <option value="MIN">MIN</option>
-                <option value="PENTEST">PENTEST</option>
+                <option value="MIN">STANDARD</option>
+                <option value="PENTEST">DEEP</option>
               </select>
             </div>
             <div class="field" style="grid-column: span 2;">
@@ -108,7 +126,7 @@ __INLINE_CSS__
                 <option value="BASIC">BASIC</option>
                 <option value="AUDIT">AUDIT</option>
                 <option value="PENTEST">PENTEST</option>
-                <option value="EXTREME">EXTREME</option>
+                <option value="EXTREME">DEEP RERUN</option>
               </select>
             </div>
             <div class="field" style="grid-column: span 3;">
@@ -127,11 +145,11 @@ __INLINE_CSS__
 
           <div class="row">
             <div class="field" style="grid-column: span 6;">
-              <label>Assignment JSON (optional)</label>
+              <label>Batch policy JSON (optional)</label>
               <input id="assignmentPathInput" type="text" placeholder="assets/assignment.sample.json" />
             </div>
             <div class="field" style="grid-column: span 6;">
-              <label>Audit directory (optional)</label>
+              <label>Batch audit directory (optional)</label>
               <input id="auditDirInput" type="text" placeholder="target/debug" />
             </div>
           </div>
@@ -143,7 +161,7 @@ __INLINE_CSS__
           </div>
 
           <div class="btn-row" style="margin-bottom: 9px;">
-            <button id="btnRun" class="btn primary">Run Analysis</button>
+            <button id="btnRun" class="btn primary" disabled>Run Analysis</button>
             <button id="btnStop" class="btn warn">Stop</button>
             <button id="btnRefreshReports" class="btn">Refresh Reports</button>
           </div>
@@ -238,7 +256,8 @@ __INLINE_CSS__
         <div id="view-settings" class="panel-body view hidden">
           <div class="row">
             <div class="field" style="grid-column: span 6;"><label id="lblLanguage">Language</label>
-              <select id="langSelect"><option value="auto">Auto</option><option value="en">English</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="de">German</option></select>
+              <select id="langSelect"><option value="auto">Auto (English recommended)</option><option value="en">English</option><option value="ru">Russian (Experimental)</option><option value="uk">Ukrainian (Experimental)</option><option value="de">German (Experimental)</option></select>
+              <div id="languageCoverageHint" class="field-help">English is currently the only fully polished UI language.</div>
             </div>
             <div class="field" style="grid-column: span 3;"><label id="lblAccent">Accent</label>
               <select id="accentSelect">
@@ -257,10 +276,10 @@ __INLINE_CSS__
               <select id="themeModeSelect"><option value="AUTO">System (Auto)</option><option value="DARK">Dark</option><option value="LIGHT">Light</option></select>
             </div>
             <div class="field" style="grid-column: span 3;"><label id="lblDefaultMode">Default mode</label>
-              <select id="defaultModeSelect"><option value="MIN">MIN</option><option value="PENTEST">PENTEST</option></select>
+              <select id="defaultModeSelect"><option value="MIN">STANDARD</option><option value="PENTEST">DEEP</option></select>
             </div>
             <div class="field" style="grid-column: span 3;"><label id="lblDefaultPowerProfile">Default power profile</label>
-              <select id="defaultPowerProfileSelect"><option value="BASIC">BASIC</option><option value="AUDIT">AUDIT</option><option value="PENTEST">PENTEST</option><option value="EXTREME">EXTREME</option></select>
+              <select id="defaultPowerProfileSelect"><option value="BASIC">BASIC</option><option value="AUDIT">AUDIT</option><option value="PENTEST">PENTEST</option><option value="EXTREME">DEEP RERUN</option></select>
             </div>
             <div class="field" style="grid-column: span 3;"><label id="lblDefaultSandboxProfile">Default sandbox profile</label>
               <select id="defaultSandboxProfileSelect"><option value="limited">limited</option><option value="isolated">isolated</option><option value="none">none</option></select>
@@ -271,6 +290,27 @@ __INLINE_CSS__
           </div>
           <div class="row">
             <div class="field" style="grid-column: span 12;"><label id="lblAnalyzerPath">Analyzer path (optional override)</label><input id="analyzerPathInput" type="text" placeholder="Auto-detect (leave blank)" /></div>
+          </div>
+          <div class="settings-card">
+            <div id="settingsDiagTitle" class="settings-card-title">App Diagnostics</div>
+            <div class="settings-diag-grid">
+              <div class="settings-diag-item">
+                <span id="lblAppVersion">App version</span>
+                <strong id="appVersionValue" class="mono">unknown</strong>
+              </div>
+              <div class="settings-diag-item">
+                <span id="lblEngineStatus">Engine status</span>
+                <strong id="engineStatusValue" class="mono">checking...</strong>
+              </div>
+              <div class="settings-diag-item settings-diag-item-wide">
+                <span id="lblResolvedEngine">Resolved engine path</span>
+                <strong id="enginePathValue" class="mono">-</strong>
+              </div>
+              <div class="settings-diag-item settings-diag-item-wide">
+                <span id="lblSettingsPath">Settings file</span>
+                <strong id="settingsPathValue" class="mono">-</strong>
+              </div>
+            </div>
           </div>
           <div class="btn-row">
             <button id="btnSaveSettings" class="btn primary">Save Settings</button>
@@ -298,16 +338,15 @@ __INLINE_CSS__
 
     <footer class="statusbar">
       <span class="status-dot"></span>
-      <span id="stMode">mode=MIN</span>
+      <span id="stMode">mode=STANDARD</span>
       <span id="stSandbox">sandbox=limited</span>
-      <span id="stVersion">schema=unknown</span>
+      <span id="stVersion">app=unknown</span>
       <span id="stRun">analysis=idle</span>
     </footer>
   </div>
 
-    <script>
+  <script>
 __INLINE_JS__
   </script>
 </body>
 </html>
-

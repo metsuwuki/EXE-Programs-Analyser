@@ -23,6 +23,9 @@ function bind() {
       document.getElementById("targetPath").addEventListener("change", (e) => {
         refreshTargetType(e.target.value).catch(() => {});
       });
+      document.getElementById("targetPath").addEventListener("input", (e) => {
+        refreshTargetType(e.target.value).catch(() => {});
+      });
       document.getElementById("btnRun").addEventListener("click", () => runAnalysis().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnStop").addEventListener("click", () => stopAnalysis().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnRefreshReports").addEventListener("click", () => listReports().catch(e => addLog("[error] " + e.message)));
@@ -38,6 +41,14 @@ function bind() {
       document.getElementById("btnCloseReport").addEventListener("click", clearCurrentReport);
       document.getElementById("powerProfileSelect").addEventListener("change", (e) => {
         applyPowerProfilePreset(e.target.value);
+      });
+      document.getElementById("modeSelect").addEventListener("change", (e) => {
+        document.getElementById("modeBadge").textContent = tr("lblMode").toUpperCase() + ": " + formatModeLabel(e.target.value);
+        document.getElementById("stMode").textContent = "mode=" + formatModeLabel(e.target.value);
+        refreshAdvancedUi();
+      });
+      document.getElementById("sandboxProfileSelect").addEventListener("change", (e) => {
+        document.getElementById("stSandbox").textContent = "sandbox=" + normalizeSandboxProfile(e.target.value);
       });
       document.getElementById("findingSearch").addEventListener("input", renderFindings);
       document.getElementById("severityFilter").addEventListener("change", renderFindings);
@@ -71,9 +82,15 @@ function bind() {
       enhanceSelects();
       initHeroParticles();
       bind();
+      setupAdvancedUi();
       await loadSettings();
+      await loadAppInfo();
       await listReports();
       switchView("home");
+      renderDetailsBox();
+      addLog("[guide] 1. Choose a Windows .exe target");
+      addLog("[guide] 2. Pick STANDARD or DEEP");
+      addLog("[guide] 3. Run analysis and review the report");
       addLog("[ui] web frontend ready");
       drawSeverityDonut({ pass: 0, warn: 0, fail: 0 });
       drawRuntimeChart({ durations: [], p50: 0, p95: 0 });
