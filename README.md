@@ -1,7 +1,7 @@
 # Metsuki EXE Analyzer
 
 <p align="center">
-  Windows EXE triage and runtime diagnostics for fast first-pass analysis.
+  Windows EXE triage, runtime diagnostics, and debugger orchestration for fast first-pass analysis.
 </p>
 
 <p align="center">
@@ -13,9 +13,31 @@
 
 ---
 
+## Public Repository Scope
+
+This directory is prepared for a public GitHub showcase repository.
+
+It is intended to publish:
+
+- product overview
+- screenshots and release notes
+- report format documentation
+- security and integrity notes
+- compiled release binaries, if desired
+
+It is not intended to publish:
+
+- application source code
+- internal build logic
+- runtime sandbox implementation details in source form
+- debugger orchestration internals
+- private assets, experiments, or development history
+
+---
+
 ## What It Is
 
-Metsuki EXE Analyzer is a Windows-focused tool for inspecting `.exe` files, running practical runtime scenarios, and generating reviewable reports.
+Metsuki EXE Analyzer is a Windows-first desktop and CLI tool for reviewing `.exe` targets, exercising runtime scenarios, and collecting structured evidence in one place.
 
 It is built for:
 
@@ -29,186 +51,81 @@ It is built for:
 ## What It Is Not
 
 - It is not an antivirus.
-- It does not promise a reliable malware verdict.
-- It is not a replacement for deep reverse engineering or full sandbox research.
-- It is not positioned as a source-code analyzer in the main product workflow.
+- It does not promise a trustworthy malware verdict.
+- It is not a replacement for reverse engineering, a VM lab, or a full EDR sandbox.
+- Its `isolated` profile is a stronger local runtime harness, not a full container or virtual machine.
 
 ---
 
 ## Core Value
 
 - EXE-first workflow: choose a Windows executable, run analysis, review findings
-- PE-focused checks: sections, entropy, imports, mitigations, signatures, overlay indicators
+- PE-focused checks: headers, sections, entropy, mitigations, imports, signatures, overlays
 - runtime diagnostics: scenario runs, timing, exit codes, timeouts, stdout/stderr evidence
 - structured output: JSON reports with optional Markdown and HTML exports
-- desktop UI for hands-on use and CLI for scripting
-- portable bundle and installer packaging
+- desktop UI for hands-on use and CLI for scripting, batch audit, and exports
+- built-in reports, runtime, debugger, settings, and repro-bundle flows
 
 ---
 
-## User-Facing Modes
+## Desktop Workflow
 
-The product exposes two simple analysis modes in the GUI:
+The desktop application centers around five views:
 
-- `STANDARD`: the recommended first pass for most EXE reviews
-- `DEEP`: a broader rerun for harder cases or when you want more runtime coverage
+- `Home`: target selection, power profile, sandbox profile, run controls, KPIs
+- `Reports`: previous report loading, findings review, log access, export, report close
+- `Runtime`: per-scenario timeline, stdout/stderr previews, timeout and exit evidence
+- `Debugger`: DAP-based launch preparation and debugger workbench integration
+- `Settings`: language, appearance, defaults, analyzer path, diagnostics
 
-CLI mapping:
+Additional user-facing behavior:
 
-- `STANDARD` maps to `MIN`
-- `DEEP` maps to `PENTEST`
+- first-run welcome screen before the main workspace is initialized
+- persisted settings in `%APPDATA%\\Metsuki\\exe_analyzer\\settings.json`
+- interface localization for English, Russian, Ukrainian, and German
+- runtime report export to Markdown and HTML through the desktop UI
+- hidden `pentest` visual layer for the strict analysis profile
 
 ---
 
 ## Power Profiles
 
-Power profiles are presets for runs, timeout, mode, and sandbox level.
+Power profiles are presets for analysis mode, verdict mode, runs, timeout, and sandbox level.
 
-| Profile | User meaning | CLI mode | Runs | Timeout | Sandbox |
-|---|---|---|---|---|---|
-| `BASIC` | quick local pass | `MIN` | 4 | 4 s | limited |
-| `AUDIT` | steadier review pass | `MIN` | 8 | 5 s | limited |
-| `PENTEST` | deeper strict pass | `PENTEST` | 10 | 6 s | isolated |
-| `EXTREME` | deeper rerun preset, not a separate magic mode | `PENTEST` | 12 | 8 s | isolated |
+| Profile | User meaning | Analysis mode | Verdict mode | Runs | Timeout | Sandbox |
+|---|---|---|---|---|---|---|
+| `BASIC` | default local pass | `MIN` | `BALANCED` | 4 | 5 s | `limited` |
+| `AUDIT` | steadier review pass | `MIN` | `BALANCED` | 2 | 4 s | `limited` |
+| `PENTEST` | strict extended pass | `PENTEST` | `STRICT` | 16 | 10 s | `isolated` |
 
----
-
-## Quick Start
-
-### End Users
-
-1. Open `dist/EXE_Analyzer`
-2. Run `exe_tester_web_gui.exe`
-3. Choose a Windows `.exe`
-4. Pick `STANDARD` or `DEEP`
-5. Run analysis and review the report
-
-Rust or Cargo are not required for end users.
-
-### Developers
-
-Build all binaries:
-
-```powershell
-cargo build --release --bins
-```
-
-Run the desktop UI:
-
-```powershell
-cargo run --bin exe_tester_web_gui
-```
-
-Run the CLI:
-
-```powershell
-cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-min --runs 6 --timeout 4 --out-dir logs
-```
-
-Run the deeper CLI pass:
-
-```powershell
-cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-pentest --out-dir logs
-```
-
-Use a power profile:
-
-```powershell
-cargo run --bin exe_tester -- "C:\path\to\app.exe" --power-profile AUDIT --out-dir logs
-```
+`PENTEST` requires explicit confirmation before extended checks are enabled in the GUI or CLI.
 
 ---
 
-## CLI Reference
+## Distribution Model
 
-```text
-exe_tester <target.exe> [options]
-```
+This public repository is a showcase and release surface.
 
-Main supported target: Windows `.exe`
+Source code is not included in the public package represented by this folder. Public redistribution, copying, relicensing, and reuse are governed by the included `LICENSE` file.
 
-The CLI now rejects non-EXE targets in the primary workflow.
+If you publish releases:
 
-| Flag | Values | Default | Description |
-|---|---|---|---|
-| `--mode-min` | - | yes | first-pass EXE analysis |
-| `--mode-pentest` | - |  | deeper EXE analysis |
-| `--mode` | `min` / `pentest` | `min` | value-based alternative to the mode flags |
-| `--power-profile` | `BASIC` `AUDIT` `PENTEST` `EXTREME` | `BASIC` | preset for mode, runs, timeout, and sandbox |
-| `--runs` | integer >= 1 | 4 | number of runtime scenario runs |
-| `--timeout` | integer >= 1 | 4 | per-run timeout in seconds |
-| `--strict` | - |  | force STRICT verdict mode |
-| `--balanced` | - |  | force BALANCED verdict mode |
-| `--sandbox-profile` | `limited` `isolated` `none` | `limited` | runtime isolation level |
-| `--out-dir` | path | `logs` | output directory for reports |
-| `--export-md` | - |  | export Markdown report |
-| `--export-html` | - |  | export HTML report |
-| `--export-format` | `json` `md` `html` `both` | `json` | shorthand export selector |
-| `--only-scenario` | name |  | rerun one runtime scenario |
-| `--assignment` | path |  | assignment JSON for batch audit flow |
-| `--audit-dir` | path |  | directory of EXE targets for batch audit |
-| `--lab-profile` | `standard` `aggressive` | `standard` | internal security-lab preset for EXE analysis |
-| `--modules` | `id1,id2,...` |  | override active module IDs |
-| `--no-security-lab` | - |  | disable security-lab modules |
-| `--list-lab-modules` | - |  | print module status table and exit |
-| `--confirm-extended-tests` | - |  | explicit opt-in for extended checks |
-| `--fuzz-engine` | `native` `libafl` | `native` | fuzzing engine selection |
+- upload only the binaries or installer you want to distribute
+- publish hashes together with every release
+- do not upload the internal source tree unless you intentionally want to open it
 
 ---
 
-## Output
+## Documentation Map
 
-| Path | Contents |
-|---|---|
-| `dist/EXE_Analyzer/` | portable bundle |
-| `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe` | installer |
-| `dist/EXE_Analyzer/SHA256SUMS.txt` | release hash manifest |
-| `dist/EXE_Analyzer/SECURITY_PRECHECK.txt` | pre-release check log |
-| `logs/` | analysis reports |
-
-Settings are stored at `%APPDATA%\Metsuki\exe_analyzer\settings.json`.
+- `REPORT_FORMAT.md`: report schema and compatibility notes
+- `SECURITY.md`: release integrity and endpoint-security notes
+- `REPOSITORY_NOTICE.md`: repository scope and usage restrictions
+- `PUBLISH_CHECKLIST.md`: what to include in the public GitHub repo
+- `LICENSE`: public repository rights and restrictions
 
 ---
 
-## Build And Packaging
+## License
 
-Build portable package:
-
-```powershell
-build_portable.cmd
-```
-
-Build installer:
-
-```powershell
-build_setup.cmd
-```
-
-Build release artifacts:
-
-```powershell
-release_artifacts.cmd
-```
-
-Verify a portable bundle:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/verify_portable.ps1
-```
-
-Note for maintainers:
-`build_setup.cmd` requires Inno Setup (`ISCC.exe`) to be installed locally.
-
----
-
-## Security Notes
-
-- `SECURITY.md`: release integrity and false-positive handling
-- `SECURITY_LAB_MODULES.md`: supported EXE-oriented lab modules and presets
-
----
-
-## Repository Notes
-
-- Keep source and build scripts in version control: `src/`, `installer/`, `scripts/`, `webui/`, `assets/`
-- Do not commit generated outputs such as `target/`, `dist/`, or runtime logs
+This public repository package is distributed under an `All Rights Reserved` license. See `LICENSE`.
