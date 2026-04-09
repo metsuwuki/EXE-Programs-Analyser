@@ -1,8 +1,0 @@
-﻿Metsuki EXE Analyzer release precheck
-version=0.4.0
-timestamp_utc=2026-04-09T16:58:09Z
-portable_exists=True
-engine_exists=True
-setup_exists=True
-sign_requested=False
-status=ok
