@@ -1,6 +1,6 @@
 # Report Format
 
-Current public report metadata:
+Current report metadata:
 
 - `schema_version`: `2.3`
 - `report_version`: `2026-04`
@@ -45,13 +45,24 @@ Top-level JSON structure:
   "artifacts": {
     "target_kind": "Executable",
     "file_size_bytes": 0,
-    "static_analysis": {}
+    "static_analysis": {
+      "pe": {},
+      "strings": {}
+    }
   },
   "findings": [],
   "runtime": [],
   "telemetry": {}
 }
 ```
+
+Top-level field notes:
+
+- `analysis_mode`: high-level execution mode such as `MIN` or `PENTEST`
+- `mode`: verdict mode such as `BALANCED` or `STRICT`
+- `score`: numeric score used by the UI KPI and exports
+- `final_status`: final severity enum value `PASS`, `WARN`, or `FAIL`
+- `known_check_ids`: bundled check catalog snapshot for downstream tooling
 
 Finding row shape:
 
@@ -83,16 +94,38 @@ Runtime row shape:
     "working_dir": "logs/run_01",
     "started_unix": 0,
     "finished_unix": 0,
-    "events": [],
+    "events": [
+      {
+        "at_ms": 0,
+        "stage": "spawn",
+        "detail": "process launched"
+      }
+    ],
     "stdout_preview": "",
     "stderr_preview": ""
   }
 }
 ```
 
-Compatibility rules:
+Artifact notes:
+
+- `artifacts.static_analysis.pe` is present for executable targets
+- `artifacts.static_analysis.strings` contains suspicious string hits
+- `artifacts.static_analysis.source` may appear for source-like inputs in internal or legacy flows
+- `telemetry` contains security-lab module state and runtime coverage details
+
+Stable `CHECK_ID` catalog is sourced from `src/report_schema.rs`.
+
+Recent catalog entries include:
+
+- `SOURCE_UNSANITIZED_INPUT`
+- `SOURCE_HARDCODED_SECRET`
+- `SANDBOX_ENFORCEMENT_FAILED`
+- `LIBAFL_FEATURE_DISABLED`
+
+Expected compatibility rule:
 
 - consumers should read `report_version` first
 - if unavailable, fall back to `schema_version`
-- consumers should tolerate missing optional fields under `artifacts.static_analysis`
-- `known_check_ids` should be treated as the bundled catalog snapshot for that report
+- UI and exporters should rely on `known_check_ids` for the bundled catalog snapshot
+- consumers should tolerate missing optional sub-objects under `artifacts.static_analysis`

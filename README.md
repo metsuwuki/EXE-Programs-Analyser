@@ -13,28 +13,6 @@
 
 ---
 
-## Public Repository Scope
-
-This directory is prepared for a public GitHub showcase repository.
-
-It is intended to publish:
-
-- product overview
-- screenshots and release notes
-- report format documentation
-- security and integrity notes
-- compiled release binaries, if desired
-
-It is not intended to publish:
-
-- application source code
-- internal build logic
-- runtime sandbox implementation details in source form
-- debugger orchestration internals
-- private assets, experiments, or development history
-
----
-
 ## What It Is
 
 Metsuki EXE Analyzer is a Windows-first desktop and CLI tool for reviewing `.exe` targets, exercising runtime scenarios, and collecting structured evidence in one place.
@@ -102,30 +80,171 @@ Power profiles are presets for analysis mode, verdict mode, runs, timeout, and s
 
 ---
 
-## Distribution Model
+## Sandbox Profiles
 
-This public repository is a showcase and release surface.
+Runtime scenarios support three local execution profiles:
 
-Source code is not included in the public package represented by this folder. Public redistribution, copying, relicensing, and reuse are governed by the included `LICENSE` file.
+| Profile | Meaning |
+|---|---|
+| `limited` | normal harnessing plus redirected runtime environment |
+| `isolated` | `limited` plus Windows Job Object limits, kill-on-close, memory caps, and active-process cap |
+| `none` | direct launch without sandbox restrictions |
 
-If you publish releases:
+The sandbox layer redirects runtime paths such as `TEMP`, `HOME`, `APPDATA`, and `LOCALAPPDATA` into the run workspace so the target does not write into the normal user profile during instrumented runs.
 
-- upload only the binaries or installer you want to distribute
-- publish hashes together with every release
-- do not upload the internal source tree unless you intentionally want to open it
+---
+
+## Quick Start
+
+### End Users
+
+1. Open `dist/EXE_Analyzer`
+2. Run `exe_tester_web_gui.exe`
+3. Choose a Windows `.exe`
+4. Pick `BASIC`, `AUDIT`, or `PENTEST`
+5. Run analysis and review the report, runtime, and exports
+
+Rust or Cargo are not required for end users.
+
+### Developers
+
+Build all binaries:
+
+```powershell
+cargo build --release --bins
+```
+
+Run the desktop UI:
+
+```powershell
+cargo run --bin exe_tester_web_gui
+```
+
+Run the CLI:
+
+```powershell
+cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-min --runs 4 --timeout 5 --out-dir logs
+```
+
+Run the strict pass:
+
+```powershell
+cargo run --bin exe_tester -- "C:\path\to\app.exe" --mode-pentest --confirm-extended-tests --out-dir logs
+```
+
+Use a power profile:
+
+```powershell
+cargo run --bin exe_tester -- "C:\path\to\app.exe" --power-profile AUDIT --out-dir logs
+```
+
+List available runtime scenarios:
+
+```powershell
+cargo run --bin exe_tester -- "C:\path\to\app.exe" --list-scenarios
+```
+
+---
+
+## CLI Reference
+
+```text
+exe_tester <target.exe> [options]
+```
+
+Main supported target: Windows `.exe`
+
+The primary workflow rejects non-EXE targets.
+
+| Flag | Values | Default | Description |
+|---|---|---|---|
+| `--mode-min` | - | yes | first-pass EXE analysis |
+| `--mode-pentest` | - |  | strict extended EXE analysis |
+| `--mode` | `min` / `pentest` | `min` | value-based alternative to the mode flags |
+| `--power-profile` | `BASIC` `AUDIT` `PENTEST` | `BASIC` | preset for mode, verdict, runs, timeout, and sandbox |
+| `--runs` | integer >= 1 | profile-based | number of runtime scenario runs |
+| `--timeout` | integer >= 1 | profile-based | per-run timeout in seconds |
+| `--strict` | - |  | force `STRICT` verdict mode |
+| `--balanced` | - | profile-based | force `BALANCED` verdict mode |
+| `--sandbox-profile` | `limited` `isolated` `none` | profile-based | runtime isolation level |
+| `--out-dir` | path | `logs` | output directory for reports |
+| `--export-md` | - |  | export Markdown report |
+| `--export-html` | - |  | export HTML report |
+| `--export-format` | `json` `md` `html` `both` | `json` | shorthand export selector |
+| `--only-scenario` | name |  | rerun one runtime scenario |
+| `--list-scenarios` | - |  | print runtime scenario catalog and exit |
+| `--assignment` | path |  | assignment JSON for teacher or audit flow |
+| `--audit-dir` | path |  | directory of EXE targets for batch audit |
+| `--lab-profile` | `standard` `aggressive` | `standard` | security-lab preset |
+| `--modules` | `id1,id2,...` | profile-based | override active module IDs |
+| `--no-security-lab` | - |  | disable security-lab module layer |
+| `--list-lab-modules` | - |  | print module catalog and exit |
+| `--confirm-extended-tests` | - |  | explicit opt-in for extended checks |
+| `--fuzz-engine` | `native` `libafl` | `native` | fuzzing engine selection |
+
+---
+
+## Output
+
+| Path | Contents |
+|---|---|
+| `logs/` | analysis reports and runtime artifacts |
+| `dist/EXE_Analyzer/` | portable bundle |
+| `dist/Metsuki_EXE_Analyzer_Setup_<version>.exe` | installer |
+| `dist/EXE_Analyzer/SHA256SUMS.txt` | release hash manifest |
+| `dist/EXE_Analyzer/SECURITY_PRECHECK.txt` | pre-release check log |
+
+Desktop settings are stored at `%APPDATA%\\Metsuki\\exe_analyzer\\settings.json`.
+
+---
+
+## Build And Packaging
+
+Build portable package:
+
+```powershell
+build_portable.cmd
+```
+
+Build installer:
+
+```powershell
+build_setup.cmd
+```
+
+Build release artifacts:
+
+```powershell
+release_artifacts.cmd
+```
+
+Verify a portable bundle:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify_portable.ps1
+```
+
+Note for maintainers:
+`build_setup.cmd` requires Inno Setup (`ISCC.exe`) to be installed locally.
 
 ---
 
 ## Documentation Map
 
 - `REPORT_FORMAT.md`: report schema and compatibility notes
-- `SECURITY.md`: release integrity and endpoint-security notes
-- `REPOSITORY_NOTICE.md`: repository scope and usage restrictions
-- `PUBLISH_CHECKLIST.md`: what to include in the public GitHub repo
-- `LICENSE`: public repository rights and restrictions
+- `SECURITY_LAB_MODULES.md`: security-lab module catalog and profile behavior
+- `SECURITY.md`: release integrity, reporting policy, and endpoint-security notes
+- `LICENSE`: repository license text
 
 ---
 
 ## License
 
-This public repository package is distributed under an `All Rights Reserved` license. See `LICENSE`.
+This repository is licensed under the MIT License. See `LICENSE`.
+
+---
+
+## Repository Notes
+
+- Keep source and build scripts in version control: `src/`, `installer/`, `scripts/`, `webui/`, `assets/`
+- Do not commit generated outputs such as `target/`, `dist/`, or runtime logs
