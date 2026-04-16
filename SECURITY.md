@@ -1,6 +1,6 @@
 # Security Policy
 
-Metsuki EXE Analyzer is intended for defensive executable analysis in controlled environments.
+EXE Analyzer is intended for defensive executable analysis in controlled environments.
 
 ## Supported Versions
 
@@ -47,11 +47,11 @@ If endpoint protection flags the app:
 
 ## Vendor Submission Template
 
-- Product: Metsuki EXE Analyzer
-- Version: `0.4.0`
+- Product: EXE Analyzer
+- Version: `0.5.0`
 - SHA256: `<hash>`
 - Detection: `<vendor detection name>`
 - Detection time (UTC): `<timestamp>`
 - Package source: `<release artifact source>`
-- Reproduction: launch `exe_tester_web_gui.exe` from the package root
-- Expected behavior: local EXE analysis, runtime diagnostics, report generation, and optional debugger preparation
+- Reproduction: launch `exe_analyzer.exe` from the package root
+- Expected behavior: local EXE analysis, runtime diagnostics, report generation, and report comparison
