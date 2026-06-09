@@ -48,7 +48,7 @@ If endpoint protection flags the app:
 ## Vendor Submission Template
 
 - Product: EXE Analyzer
-- Version: `0.5.1`
+- Version: `0.6.0`
 - SHA256: `<hash>`
 - Detection: `<vendor detection name>`
 - Detection time (UTC): `<timestamp>`

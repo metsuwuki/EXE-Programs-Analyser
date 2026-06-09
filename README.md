@@ -1,7 +1,7 @@
 # EXE Analyzer
 
 <p align="center">
-  Windows EXE triage, runtime diagnostics, report comparison, and batch review in one desktop app.
+  Executable QA, Safety & Release Readiness Analyzer for Windows desktop and console applications.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 ## What It Is
 
-EXE Analyzer is a Windows-first desktop tool for reviewing `.exe` targets, exercising runtime scenarios, comparing reports, and collecting structured evidence in one place.
+EXE Analyzer is a Windows-first Executable QA, Safety & Release Readiness Analyzer. It reviews `.exe` targets, selects runtime expectations by application kind, compares reports, and collects structured evidence in one place.
 
 It is built for:
 
@@ -32,6 +32,7 @@ It is built for:
 - It does not promise a trustworthy malware verdict.
 - It is not a replacement for reverse engineering, a VM lab, or a full EDR sandbox.
 - Its `isolated` profile is a stronger local runtime harness, not a full container or virtual machine.
+- Verdicts indicate detected risk or QA readiness, not proof of maliciousness.
 
 ---
 
@@ -39,11 +40,29 @@ It is built for:
 
 - EXE-first workflow: choose a Windows executable, run analysis, review findings
 - PE-focused checks: headers, sections, entropy, mitigations, imports, signatures, overlays
+- application-kind detection for GUI, console, installer, service-like, and unknown targets
+- GUI-aware runtime checks: visible window detection, responsiveness sampling, and graceful close
 - real signature trust checks: PE certificate table parsing plus native `WinVerifyTrust` validation on Windows
 - runtime diagnostics: scenario runs, timing, exit codes, timeouts, stdout/stderr evidence, memory peaks, handle counts, and process I/O counters
 - deeper signature coverage: deterministic rule pack plus embedded `YARA-X` rules for binaries and source-like targets
 - structured output: JSON reports with optional Markdown and HTML exports
 - built-in reports, runtime, compare/history, batch review, settings, and repro-bundle flows
+
+---
+
+## AppKind-Aware Runtime
+
+Runtime evidence is collected as raw facts and then interpreted for the detected application kind.
+The raw `timed_out` flag is retained, but it does not automatically mean instability.
+
+- GUI applications with a visible responsive window can finish as `StillRunningExpected`.
+- Console applications that exceed their budget finish as `TimedOutUnexpected`.
+- Service-like applications use `NotApplicable` unless a service harness is available.
+- Installers use cautious scenarios and keep long-running/file-write behavior under review.
+- Unknown applications receive conservative review instead of an automatic malware or crash verdict.
+
+Stability is calculated from `interpreted_outcome`, while raw timeout, exit, process, network,
+window, and file evidence remain available in the report.
 
 ---
 
@@ -169,6 +188,28 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_portable.ps1
 
 Note for maintainers:
 `build_setup.cmd` requires Inno Setup (`ISCC.exe`) to be installed locally.
+
+### Windows Developer Setup
+
+Rust's `x86_64-pc-windows-msvc` target requires the native Microsoft linker and CRT libraries.
+Install Visual Studio Build Tools with:
+
+- Desktop development with C++
+- MSVC x64/x86 build tools
+- Windows 10 or Windows 11 SDK
+- C++ CMake tools for Windows, recommended
+
+Run Cargo from a Developer PowerShell, or ensure the normal MSVC and Windows SDK `LIB`,
+`PATH`, and `INCLUDE` variables are initialized. `LNK1104: cannot open file 'msvcrt.lib'`
+means the CRT workload is missing or the shell was not initialized by `VsDevCmd.bat`.
+Repair the Build Tools installation if the MSVC directory contains only `lib\onecore`
+and no normal `lib\x64\msvcrt.lib`.
+
+Install the standard Rust developer components when needed:
+
+```powershell
+rustup component add rustfmt clippy
+```
 
 ---
 
