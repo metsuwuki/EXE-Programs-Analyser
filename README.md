@@ -46,7 +46,7 @@ It is built for:
 - runtime diagnostics: scenario runs, timing, exit codes, timeouts, stdout/stderr evidence, memory peaks, handle counts, and process I/O counters
 - deeper signature coverage: deterministic rule pack plus embedded `YARA-X` rules for binaries and source-like targets
 - structured output: JSON reports with optional Markdown and HTML exports
-- built-in reports, runtime, compare/history, batch review, settings, and repro-bundle flows
+- built-in reports, runtime, compare/history, settings, and repro-bundle flows
 
 ---
 
@@ -70,10 +70,10 @@ window, and file evidence remain available in the report.
 
 The desktop application centers around five views:
 
-- `Home`: target selection, power profile, sandbox profile, run controls, KPIs
+- `Home`: target selection, analysis profile, run controls, KPIs
 - `Reports`: previous report loading, findings review, log access, export, report close
 - `Runtime`: per-scenario timeline, stdout/stderr previews, timeout and exit evidence
-- `Compare`: report diffing, run history, network/process drift, and batch review
+- `Compare`: report diffing, run history, and network/process drift
 - `Settings`: language, appearance, defaults, embedded-core diagnostics
 
 Additional user-facing behavior:
@@ -82,35 +82,20 @@ Additional user-facing behavior:
 - persisted settings in `%APPDATA%\\EXE_Analyzer\\settings.json`
 - interface localization for English, Russian, Ukrainian, and German
 - runtime report export to Markdown and HTML through the desktop UI
-- hidden `pentest` visual layer for the strict analysis profile
+- a focused dark workbench theme for the desktop UI
 
 ---
 
-## Power Profiles
+## Analysis Profiles
 
-Power profiles are presets for analysis mode, verdict mode, runs, timeout, and sandbox level.
+The desktop UI exposes two release profiles. Sandbox selection is internal to the runtime harness and is not a user-facing control.
 
-| Profile | User meaning | Analysis mode | Verdict mode | Runs | Timeout | Sandbox |
-|---|---|---|---|---|---|---|
-| `BASIC` | default local pass | `MIN` | `BALANCED` | 4 | 5 s | `limited` |
-| `AUDIT` | steadier review pass | `MIN` | `BALANCED` | 2 | 4 s | `limited` |
-| `PENTEST` | strict extended pass | `PENTEST` | `STRICT` | 16 | 10 s | `isolated` |
+| Profile | User meaning | Verdict mode | Runs | Timeout |
+|---|---|---|---|---|
+| `STANDARD` | default local pass for everyday review | `BALANCED` | 4 | 5 s |
+| `DEEP_REVIEW` | stricter extended pass for higher-risk files | `STRICT` | 16 | 10 s |
 
-`PENTEST` requires explicit confirmation before extended checks are enabled in the GUI.
-
----
-
-## Sandbox Profiles
-
-Runtime scenarios support three local execution profiles:
-
-| Profile | Meaning |
-|---|---|
-| `limited` | normal harnessing plus redirected runtime environment |
-| `isolated` | `limited` plus Windows Job Object limits, kill-on-close, memory caps, and active-process cap |
-| `none` | direct launch without sandbox restrictions |
-
-The sandbox layer redirects runtime paths such as `TEMP`, `HOME`, `APPDATA`, and `LOCALAPPDATA` into the run workspace so the target does not write into the normal user profile during instrumented runs.
+`DEEP_REVIEW` maps to the internal strict analysis mode and uses the strongest available local runtime isolation automatically.
 
 ---
 
@@ -121,7 +106,7 @@ The sandbox layer redirects runtime paths such as `TEMP`, `HOME`, `APPDATA`, and
 1. Open `dist/EXE_Analyzer`
 2. Run `exe_analyzer.exe`
 3. Choose a Windows `.exe`
-4. Pick `BASIC`, `AUDIT`, or `PENTEST`
+4. Pick `Standard` or `Deep Review`
 5. Run analysis and review the report, runtime, and exports
 
 Rust or Cargo are not required for end users.
